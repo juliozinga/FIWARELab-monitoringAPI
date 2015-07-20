@@ -1,0 +1,23 @@
+{
+  "name": "monitoringAPI",
+  "version": "0.3.0",
+  "description": "the monitoring APIs 0.3.0",
+  "main": "monitoringAPI.js",
+  "dependencies": {
+    "enum": "^0.2.6",
+    "moment": "^2.8.2",
+    "mysql": "^2.4.3",
+    "oauth": "^0.9.11",
+    "mongoose": "^3.8.8",
+    "xml2js": "^0.4.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "API"
+  ],
+  "author": "attybro",
+  "license": "ISC"
+}
