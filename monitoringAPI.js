@@ -1,33 +1,39 @@
 /***********************************/
-// Copyright 2014 Create-net.org   //  
+// Copyright 2015 Create-net.org   //  
 // All Rights Reserved.            //
-// date :04-06-2014                //
+// date :27-07-2015                //
 // author: attybro                 //
 // monitoringAPI for XiFi project  //
 /***********************************/
 
 fs   = require('fs');
 http = require('http');
+http1 =require('http');
 https= require('https');
 url  = require('url');
 Enum = require('enum');
 mongoose = require('mongoose');
 oAuth = require('oauth');
 moment =require('moment');
+request = require('request');
 
+p=0
 
 var mysql = require('mysql');                                                                                                                                                                        
-var IDMurl='XXX';
-var ConsumerKey = 'XXX';
-var ConsumerSecret = 'XXXX';
-
+var IDMurl='';
 
 var db_config = {
-    host    : 'XXX',
-    user    : 'XXX',
-    password: 'XXX',
-    database: 'XXX'
+    host    : 'xxx',
+    user    : 'xxx',
+    password: 'xxx',
+    database: 'xxx'
 };
+
+
+var optionsKP =null
+var optionsIDM = null
+var xToken=null;
+var lifeToken=null;
 
 var connection;
 
@@ -89,13 +95,7 @@ localEnum = new Enum({
 'NOT_FOUND':'404',
 'SERVER_ERROR': '500',
 'NOT_IMPLEMENTED': '501',
-'ADMIN':XX,
-'IO':XX,
-'FED_MAN':XX,
-'DEV':XX,
-'SLA':XX,
-'TRUSTED_APP':['XX','XX'],
-'TrentoNode':XX
+'TRUSTED_APP':['aaa','bbb']
 });
 
 connection.connect(function(err) {
@@ -108,15 +108,28 @@ connection.connect(function(err) {
 
 
 function main() {
-fs.readFile('api.cfg', 'utf8', function (err,data) {
+fs.readFile('/usr/local/monitoring/API/hybrid/api.cfg', 'utf8', function (err,data) {
   if (err) {
     return console.log(err);
   }
   else if(data && IsJsonString(data)){
     
     cfgObj = JSON.parse(data);
-    if(cfgObj && cfgObj.apiIPaddress && cfgObj.apiPort && cfgObj.mongoIP && cfgObj.mongoDBname && cfgObj.regionTTL && cfgObj.hostTTL && cfgObj.vmTTL && cfgObj.serviceTTL && cfgObj.h2hTTL){
+    if(cfgObj && cfgObj.KPurl && cfgObj.KPusr  && cfgObj.KPpwd   && cfgObj.IDMurl && cfgObj.apiIPaddress && cfgObj.apiPort && cfgObj.mongoIP && cfgObj.mongoDBname && cfgObj.regionTTL && cfgObj.hostTTL && cfgObj.vmTTL && cfgObj.serviceTTL && cfgObj.h2hTTL){
       //enable server
+optionsKP = {
+      url: cfgObj.KPurl+'/v3/auth/tokens',
+      method: 'POST',
+      headers: {'Content-Type': 'application/json' },
+      json:{ 'auth': {'identity': { 'methods': ['password'],  'password': { 'user': { 'name': cfgObj.KPusr , 'domain': { 'id': 'default' },'password': cfgObj.KPpwd } } } }}
+    };
+optionsIDM = {
+    url: cfgObj.KPurl+'/v3/OS-SCIM/v2/ServiceProviderConfigs',
+    method: 'GET',
+    headers: {'X-Auth-Token': null }
+};
+
+      IDMurl=cfgObj.IDMurl
       mongoPath='mongodb://'+cfgObj.mongoIP+'/'+cfgObj.mongoDBname;
       mongoose.connect(mongoPath);
       var server = http.createServer(function (req, res){manageRequest(req,res);});
@@ -131,6 +144,7 @@ fs.readFile('api.cfg', 'utf8', function (err,data) {
         var h2h='';
         var nesId='';
         var sinceValue=0;
+        var aggregate='h';
 
         if(req.headers.authorization)
           authToken=req.headers.authorization;
@@ -138,6 +152,7 @@ fs.readFile('api.cfg', 'utf8', function (err,data) {
         if (req.url){
           caseId=localEnum.BAD_REQUEST;
           url_parts=url.parse(req.url, true);
+
           if (url_parts.pathname){
             parts= url_parts.pathname.split('/').filter(function(n){return n});
 
@@ -251,13 +266,19 @@ fs.readFile('api.cfg', 'utf8', function (err,data) {
 
 
 /*Services4Region*/   //monitoring/regions/{regionid}/services?{since}
-            else if(parts.length==4 && parts[0]=="monitoring" && parts[1]=="regions" && parts[3]=="services"){
+            else if((parts.length==4 || parts.length==5 )  && parts[0]=="monitoring" && parts[1]=="regions" && parts[3]=="services"){
               if (!url_parts.query.since){
                  caseId=localEnum.LIST_SERVICE_R;
                  regionId=parts[2];
               } 
-              else if (url_parts.query.since && url_parts.query.since){
+              else if (url_parts.query.since){
+                 //console.log(url_parts.query)
                  sinceValue=url_parts.query.since;
+                 if (!url_parts.query.aggregate){
+                   aggregate='h';
+                 }
+                 else if(url_parts.query.aggregate && ( url_parts.query.aggregate=='h' ||  url_parts.query.aggregate=='d' || url_parts.query.aggregate=='m'))
+                   aggregate=url_parts.query.aggregate;
                  if (moment(sinceValue, "YYYY-MM-DDTHH:mm:ss").isValid()){
                    caseId=localEnum.LIST_SERVICE_R_TIME;
                    regionId=parts[2];
@@ -370,7 +391,7 @@ console.log(" sinceValue: "+sinceValue)
           getServiceRegion(res, 200, authToken, regionId,sinceValue)
           break;
         case localEnum.LIST_SERVICE_R_TIME.value:
-          getServiceRegionTime(res, 200, authToken, regionId, sinceValue)
+          getServiceRegionTime(res, 200, authToken, regionId, sinceValue, aggregate)
           break;
 
         case localEnum.LIST_SERVICE_H.value:
@@ -425,8 +446,15 @@ res.end('{"ERROR":'+errType+'}');
 
 
 function getRegionList(res, statusType ,authToken){
-  total_nb_users=0.0;
-  total_nb_organizations=0.0;
+  
+  basicUsers= 0;
+  trialUsers= 0;
+  communityUsers= 0;
+  totalUsers= 0;
+  total_nb_users=0;/*backward compatibility*/
+  totalUserOrganizations=0;
+  totalCloudOrganizations=0;                                                                                                                                                                                              
+  total_nb_organizations=0.0;/*backward compatibility*/
   total_nb_cores=0.0;
   total_nb_cores_enabled=0.0;
   total_nb_ram=0.0;
@@ -491,94 +519,204 @@ function getRegionList(res, statusType ,authToken){
           continue;
         }
       }//end region loop
-      OAuth2 = oAuth.OAuth2;
-      //ConsumerKey = '608';
-      //ConsumerSecret = '';  
-      try
-      {
-        oauth2 = new OAuth2(ConsumerKey,ConsumerSecret, 'https://'+IDMurl+'/', 'oauth/access', 'oauth2/token',  null);
-        oauth2._customHeaders={Authorization: 'Basic '+new Buffer(ConsumerKey+":"+ConsumerKey).toString('base64')};
-        oauth2.getOAuthAccessToken( '', { 'grant_type':'password', 'username':'XXX', 'password':'XXX' },
-        function (e, access_token, refresh_token, results){
-          if (e==null){
-            urlAPI='https://'+IDMurl+'/v2/ServiceProviderConfigs'
-	    oauth2.get(urlAPI, access_token,
-            function (e, response){
-              //if (response.indexOf("<") != -1)
-               // sendErrorResponse (res, localEnum.SERVER_ERROR.value, localEnum.SERVER_ERROR.key)
-                total_nb_users=0;
-                total_nb_organizations=0;
-              if(response && IsJsonString(response)){
-              if(JSON.parse(response).totalUsers)
-                total_nb_users         = JSON.parse(response).totalUsers;
-              if(JSON.parse(response).totalOrganizations)
-                total_nb_organizations = JSON.parse(response).totalOrganizations;
+try{
+
+  new Date().getTime();
+  now=(Math.floor(Date.now() / 1000));
+  sampleTimestamp=null;
+  if (lifeToken!=null){
+    var date = new Date(lifeToken.split(' ').join('T'))
+    sampleTimestamp= (date.getTime()/1000)
+  }
+  if (lifeToken==null || (sampleTimestamp!=null &&  now>  sampleTimestamp ) ){
+    request(optionsKP, function (errorTK, responseTK, bodyTK) {
+      if (!errorTK && (responseTK.statusCode == 201 || responseTK.statusCode==200)) {
+      xToken=responseTK.headers['x-subject-token'];
+      lifeToken=responseTK.body.token.expires_at;
+      optionsIDM.headers['X-Auth-Token']=xToken;
+      request(optionsIDM, function (errorIDM, responseIDM, bodyIDM) {
+      if (!errorIDM && (responseIDM.statusCode==200)){
+        info=JSON.parse(bodyIDM)
+        if(info.information.basicUsers)
+          basicUsers=  info.information.basicUsers;
+        if(info.information.trialUsers)
+          trialUsers=  info.information.trialUsers;
+        if(info.information.communityUsers)
+          communityUsers=  info.information.communityUsers;
+        if(info.information.totalUsers)
+          totalUsers=info.information.totalUsers
+        if(info.information.totalCloudOrganizations)
+          totalCloudOrganizations = info.information.totalCloudOrganizations;
+        if(info.information.totalUserOrganizations)
+          totalUserOrganizations  = info.information.totalUserOrganizations;
+
+        total_nb_users=basicUsers+trialUsers+communityUsers;
+        total_nb_organizations=totalUserOrganizations+totalCloudOrganizations;
+
+      if (tmp_reg.length>0){
+        _embedded={}
+        _embedded.regions=tmp_reg;
+        tmp_res._embedded=_embedded;
+       }
+      tmp_res.basicUsers = basicUsers;      tmp_res.trialUsers = trialUsers;
+      tmp_res.communityUsers = communityUsers;      tmp_res.totalUsers=totalUsers;
+      tmp_res.total_nb_users=total_nb_users;      tmp_res.totalCloudOrganizations=totalCloudOrganizations;
+      tmp_res.totalUserOrganizations=totalUserOrganizations;      tmp_res.total_nb_organizations=total_nb_organizations;
+      tmp_res.total_nb_cores=total_nb_cores; tmp_res.total_nb_cores_enabled=total_nb_cores_enabled;
+      tmp_res.total_nb_ram=total_nb_ram;      tmp_res.total_nb_disk=total_nb_disk;
+      tmp_res.total_nb_vm=total_nb_vm;        tmp_res.total_ip_assigned= total_ip_used;
+      tmp_res.total_ip_allocated= total_ip_allocated; tmp_res.total_ip= total_ip
+      sendResponse (res, localEnum.OK.value, tmp_res);
+      }
+      else {
+              /*default answers*/
               if (tmp_reg.length>0){
                 _embedded={}
-		_embedded.regions=tmp_reg;
+                _embedded.regions=tmp_reg;
                 tmp_res._embedded=_embedded;
                 }
-                
-  		tmp_res.total_nb_users=total_nb_users;
-  		tmp_res.total_nb_organizations=total_nb_organizations;
-  		tmp_res.total_nb_cores=total_nb_cores;
-  		tmp_res.total_nb_cores_enabled=total_nb_cores_enabled;
-  		tmp_res.total_nb_ram=total_nb_ram;
-  		tmp_res.total_nb_disk=total_nb_disk;
-  		tmp_res.total_nb_vm=total_nb_vm;
-                tmp_res.total_ip_assigned= total_ip_used;
-                tmp_res.total_ip_allocated= total_ip_allocated;
-                tmp_res.total_ip= total_ip
-                sendResponse (res, localEnum.OK.value, tmp_res);
-                //send response
-               }
-               else sendErrorResponse (res, localEnum.SERVER_ERROR.value, localEnum.SERVER_ERROR.key)
-             })//end function
-         }//end no error
-         else{/*use the response without the field*/
-              if (tmp_reg.length>0){
-                _embedded={}
-		_embedded.regions=tmp_reg;
-                tmp_res._embedded=_embedded;
-                }
-  		tmp_res.total_nb_users=total_nb_users;
-  		tmp_res.total_nb_organizations=total_nb_organizations;
-  		tmp_res.total_nb_cores=total_nb_cores;
-  		tmp_res.total_nb_cores_enabled=total_nb_cores_enabled;
-  		tmp_res.total_nb_ram=total_nb_ram;
-  		tmp_res.total_nb_disk=total_nb_disk;
-  		tmp_res.total_nb_vm=total_nb_vm;
-                tmp_res.total_ip_assigned= total_ip_used;
-                tmp_res.total_ip_allocated= total_ip_allocated;
-                tmp_res.total_ip= total_ip;
+                tmp_res.basicUsers = basicUsers;
+                tmp_res.trialUsers = trialUsers;
+                tmp_res.communityUsers = communityUsers;
+                tmp_res.totalUsers=totalUsers;
+                tmp_res.total_nb_users=total_nb_users;
+                tmp_res.totalCloudOrganizations=totalCloudOrganizations;
+                tmp_res.totalUserOrganizations=totalUserOrganizations;
+                tmp_res.total_nb_organizations=total_nb_organizations;
+                tmp_res.total_nb_cores=total_nb_cores;  tmp_res.total_nb_cores_enabled=total_nb_cores_enabled;
+                tmp_res.total_nb_ram=total_nb_ram;      tmp_res.total_nb_disk=total_nb_disk;
+                tmp_res.total_nb_vm=total_nb_vm;        tmp_res.total_ip_assigned= total_ip_used;
+                tmp_res.total_ip_allocated= total_ip_allocated;   tmp_res.total_ip= total_ip;
                 sendResponse (res, 200, tmp_res);
-         }
-        });//end call to api
       }
-      catch(err){
-         if (tmp_reg.length>0){
-            _embedded={}
-	    _embedded.regions=tmp_reg;
-            tmp_res._embedded=_embedded;
-          }
-          tmp_res.total_nb_users=total_nb_users;
-          tmp_res.total_nb_organizations=total_nb_organizations;
-          tmp_res.total_nb_cores=total_nb_cores;
-          tmp_res.total_nb_cores_enabled=total_nb_cores_enabled;
-          tmp_res.total_nb_ram=total_nb_ram;
-          tmp_res.total_nb_disk=total_nb_disk;
-          tmp_res.total_nb_vm=total_nb_vm;
-          tmp_res.total_ip_assigned= total_ip_used;
-          tmp_res.total_ip_allocated= total_ip_allocated;
-          tmp_res.total_ip= total_ip
-          sendResponse (res, 200, tmp_res);
+    });
+      //sendErrorResponse (res, localEnum.SERVER_ERROR.value, localEnum.SERVER_ERROR.key)
+    } 
+    else {
+              /*default answers*/
+              if (tmp_reg.length>0){
+                _embedded={}
+                _embedded.regions=tmp_reg;
+                tmp_res._embedded=_embedded;
+                }
+                tmp_res.basicUsers = basicUsers;
+                tmp_res.trialUsers = trialUsers;
+                tmp_res.communityUsers = communityUsers;
+                tmp_res.totalUsers=totalUsers;
+                tmp_res.total_nb_users=total_nb_users;
+                tmp_res.totalCloudOrganizations=totalCloudOrganizations;
+                tmp_res.totalUserOrganizations=totalUserOrganizations;
+                tmp_res.total_nb_organizations=total_nb_organizations;
+                tmp_res.total_nb_cores=total_nb_cores;  tmp_res.total_nb_cores_enabled=total_nb_cores_enabled;
+                tmp_res.total_nb_ram=total_nb_ram;      tmp_res.total_nb_disk=total_nb_disk;
+                tmp_res.total_nb_vm=total_nb_vm;        tmp_res.total_ip_assigned= total_ip_used;
+                tmp_res.total_ip_allocated= total_ip_allocated;   tmp_res.total_ip= total_ip;
+                sendResponse (res, 200, tmp_res);
+      //Problemi a riceve il token
+      //sendErrorResponse (res, localEnum.SERVER_ERROR.value, localEnum.SERVER_ERROR.key)
+    }
+});//end of token request
+}
+///I could implement a request without when the token is timed out
+else{
+      
+      optionsIDM.headers['X-Auth-Token']=xToken;
+      request(optionsIDM, function (errorIDM, responseIDM, bodyIDM) {
+      if (!errorIDM && (responseIDM.statusCode==200)){
+        info=JSON.parse(bodyIDM)
+        if(info.information.basicUsers)
+          basicUsers=  info.information.basicUsers;
+        if(info.information.trialUsers)
+          trialUsers=  info.information.trialUsers;
+        if(info.information.communityUsers)
+          communityUsers=  info.information.communityUsers;
+        if(info.information.totalUsers)
+          totalUsers         = info.information.totalUsers;
+        if(info.information.totalCloudOrganizations)
+          totalCloudOrganizations = info.information.totalCloudOrganizations;
+        if(info.information.totalUserOrganizations)
+          totalUserOrganizations  = info.information.totalUserOrganizations;
+        total_nb_users=basicUsers+trialUsers+communityUsers;
+        total_nb_organizations=totalUserOrganizations+totalCloudOrganizations;
+
+      if (tmp_reg.length>0){
+        _embedded={}
+        _embedded.regions=tmp_reg;
+        tmp_res._embedded=_embedded;
+       }
+
+      tmp_res.basicUsers = basicUsers;
+      tmp_res.trialUsers = trialUsers;
+      tmp_res.communityUsers = communityUsers;
+      tmp_res.totalUsers=totalUsers;
+      tmp_res.total_nb_users=basicUsers+trialUsers+communityUsers;
+      tmp_res.totalCloudOrganizations=totalCloudOrganizations;
+      tmp_res.totalUserOrganizations=totalUserOrganizations;
+      tmp_res.total_nb_organizations=total_nb_organizations;
+      tmp_res.total_nb_cores=total_nb_cores; tmp_res.total_nb_cores_enabled=total_nb_cores_enabled;
+      tmp_res.total_nb_ram=total_nb_ram;      tmp_res.total_nb_disk=total_nb_disk;
+      tmp_res.total_nb_vm=total_nb_vm;        tmp_res.total_ip_assigned= total_ip_used;
+      tmp_res.total_ip_allocated= total_ip_allocated; tmp_res.total_ip= total_ip
+      sendResponse (res, localEnum.OK.value, tmp_res);
+      //console.log(info.information.totalUsers);
+      //console.log(info.information.totalCloudOrganizations);
       }
+      else {
+              /*default answers*/
+              if (tmp_reg.length>0){
+                _embedded={}
+                _embedded.regions=tmp_reg;
+                tmp_res._embedded=_embedded;
+                }
+                tmp_res.basicUsers = basicUsers;
+                tmp_res.trialUsers = trialUsers;
+                tmp_res.communityUsers = communityUsers;
+                tmp_res.totalUsers=totalUsers;
+                tmp_res.total_nb_users=total_nb_users;
+                tmp_res.totalCloudOrganizations=totalCloudOrganizations;
+                tmp_res.totalUserOrganizations=totalUserOrganizations;
+                tmp_res.total_nb_organizations=total_nb_organizations;
+                tmp_res.total_nb_cores=total_nb_cores;  tmp_res.total_nb_cores_enabled=total_nb_cores_enabled;
+                tmp_res.total_nb_ram=total_nb_ram;      tmp_res.total_nb_disk=total_nb_disk;
+                tmp_res.total_nb_vm=total_nb_vm;        tmp_res.total_ip_assigned= total_ip_used;
+                tmp_res.total_ip_allocated= total_ip_allocated;   tmp_res.total_ip= total_ip;
+                sendResponse (res, 200, tmp_res);
+      }
+    });
+}
+
+}
+catch (error){
+              /*default answers*/
+              if (tmp_reg.length>0){
+                _embedded={}
+                _embedded.regions=tmp_reg;
+                tmp_res._embedded=_embedded;
+                }
+                tmp_res.basicUsers = basicUsers;
+                tmp_res.trialUsers = trialUsers;
+                tmp_res.communityUsers = communityUsers;
+                tmp_res.totalUsers=totalUsers;
+                tmp_res.total_nb_users=total_nb_users;
+                tmp_res.totalCloudOrganizations=totalCloudOrganizations;
+                tmp_res.totalUserOrganizations=totalUserOrganizations;
+                tmp_res.total_nb_organizations=total_nb_organizations;
+                tmp_res.total_nb_cores=total_nb_cores;  tmp_res.total_nb_cores_enabled=total_nb_cores_enabled;
+                tmp_res.total_nb_ram=total_nb_ram;      tmp_res.total_nb_disk=total_nb_disk;
+                tmp_res.total_nb_vm=total_nb_vm;        tmp_res.total_ip_assigned= total_ip_used;
+                tmp_res.total_ip_allocated= total_ip_allocated;   tmp_res.total_ip= total_ip;
+                sendResponse (res, 200, tmp_res);
+}
+
+
     }//end if entries are present
     else {
      sendErrorResponse (res, localEnum.NOT_FOUND.value, localEnum.NOT_FOUND.key)
    }
   });  
 }
+
+
 
 function getRegion(res, statusType, authToken, regionId){
   var tmp_res={"_links": {"self": { "href": "" }},"measures":[]};
@@ -994,103 +1132,10 @@ function getHostList(res, statusType, authToken, regionId){
                  }
                });
             }
-
-
-/*
-            else if(IsTRUSTED_APP(orgArray)){
-                 //console.log("trustedAPP")
-                 Entity.find({$and: [{"_id.type": "host_compute" }, {"_id.id": {$regex : regionId+":*"}}] } ,function (err, host){
-                 if (host && !(err)){
-                   var tmp_res={"_links": {"self": { "href": "" }}, "hosts":[]};
-                   tmp_res._links.self={ "href": "/monitoring/regions/"+regionId+"/hosts"}
-                   new Date().getTime();
-                   now=(Math.floor(Date.now() / 1000));
-                   for( var tmp_h in host){
-                     if (host[tmp_h]){
-                       var attrPckt=host[tmp_h].attrs
-                       if(host[tmp_h]._id.type=="host_compute" ||(host[tmp_h]._id.type=="host_controller"  &&  (infraName.indexOf((regionId)) != -1) )   ){
-                         for (var at in attrPckt){
-                           if (attrPckt[at].name  && attrPckt[at].name=='hostname' && attrPckt[at].value!='none' && attrPckt[at].value.length<10){
-                             addThis={"_links" : {"self": { "href": "/monitoring/regions/"+regionId+"/hosts/"+attrPckt[at].value} },"id": attrPckt[at].value}
-                             tmp_res.hosts.push(addThis);
-                             break;
-                           }
-                         }//end for
-                       }
-                     }
-                   }
-                   sendResponse (res, localEnum.OK.value, tmp_res);
-                 }
-                 else{
-                   sendErrorResponse (res, localEnum.NOT_FOUND.value, localEnum.NOT_FOUND.key)
-                 }
-               });
-            }
-*/
-	    //Qua potrei commentare tutto e tornare un NON AUTORIZZATO
              else {
                sendErrorResponse (res, localEnum.UNAUTHORIZED.value, localEnum.UNAUTHORIZED.key);
-               /*
-               Entity.find({$and: [{"_id.type": "host" }, {"_id.id": {$regex : regionId+":*"}}] } ,function (err, host){
-                 if (host && !(err)){
-                   var tmp_res={"_links": {"self": { "href": "" }}, "hosts":[]};
-                   tmp_res._links.self={ "href": "/monitoring/regions/"+regionId+"/hosts"}
-                   new Date().getTime();
-                   now=(Math.floor(Date.now() / 1000));
-                   for( var tmp_h in host){
-                     if (host[tmp_h]){
-                       var attrPckt=host[tmp_h].attrs
-                       for (var at in attrPckt){
-                         if (attrPckt[at].name  && attrPckt[at].name=='hostname' && attrPckt[at].value!='none'){
-                //id_h= (host[tmp_h]._id.id.split(":"))[1];
-                           addThis={"_links" : {"self": { "href": "/monitoring/regions/"+regionId+"/hosts/"+attrPckt[at].value} },"id": attrPckt[at].value}
-                           tmp_res.hosts.push(addThis);
-                           break;
-                         }
-                       }
-                     }
-                   }
-                   sendResponse (res, localEnum.OK.value, tmp_res);
-                 }
-                 else{
-                   sendErrorResponse (res, localEnum.NOT_FOUND.value, localEnum.NOT_FOUND.key)
-                  }
-                });
-              */
-              }//unknown role
-          // }
-         //  else{
 
-//////USER WITHOUT ROLES
-        //     sendErrorResponse (res, localEnum.UNAUTHORIZED.value, localEnum.UNAUTHORIZED.key);
-    /*
-    Entity.find({$and: [{"_id.type": "host" }, {"_id.id": {$regex : regionId+":*"}}] } ,function (err, host){
-      if (host && !(err)){
-        var tmp_res={"_links": {"self": { "href": "" }}, "hosts":[]};
-        tmp_res._links.self={ "href": "/monitoring/regions/"+regionId+"/hosts"}
-        new Date().getTime();
-        now=(Math.floor(Date.now() / 1000));
-        for( var tmp_h in host){
-          if (host[tmp_h]){
-            var attrPckt=host[tmp_h].attrs
-            for (var at in attrPckt){
-              if (attrPckt[at].name  && attrPckt[at].name=='hostname' && attrPckt[at].value!='none'){
-                //id_h= (host[tmp_h]._id.id.split(":"))[1];
-                addThis={"_links" : {"self": { "href": "/monitoring/regions/"+regionId+"/hosts/"+attrPckt[at].value} },"id": attrPckt[at].value}
-                tmp_res.hosts.push(addThis);
-                break;
-              }
-            }
-          }
-        }
-        sendResponse (res, localEnum.OK.value, tmp_res);
-      }
-      else{
-        sendErrorResponse (res, localEnum.NOT_FOUND.value, localEnum.NOT_FOUND.key)
-      }
-    });
-    */
-          // }
+              }//unknown role
          });
        });
       }
@@ -1139,10 +1184,6 @@ function getHost(res, statusType, authToken, regionId, hostId){
           sendErrorResponse (res, localEnum.UNAUTHORIZED.value, localEnum.UNAUTHORIZED.key);
          }
 
-
-
-
-
            var actorId=''
            actorIdArray=[]
            organizations=[];
@@ -1159,18 +1200,11 @@ function getHost(res, statusType, authToken, regionId, hostId){
              if(UserJson.app_id) app_id=UserJson.app_id
              if(UserJson.organizations)
                organizations=UserJson.organizations;
-             //if (actorId){
-             //  actorIdArray.push(actorId);
-            // }
-            // else{
-            //   sendErrorResponse (res, localEnum.UNAUTHORIZED.value, localEnum.UNAUTHORIZED.key);
-            // }
            }
            orgArray=[]
            infraName=[]
            
            if (organizations)
-           //console.log(organizations)
              for (it=0; it<organizations.length; it++){
                if(organizations[it].actorId){
                  actorIdArray.push(organizations[it].actorId);
@@ -1253,7 +1287,6 @@ function getHost(res, statusType, authToken, regionId, hostId){
          responseCloud.on('error', function(err){
            sendErrorResponse (res, localEnum.UNAUTHORIZED.value, localEnum.UNAUTHORIZED.key);
          });
-
        })//Cloud response
       }//end try
       catch(err){
@@ -1267,94 +1300,7 @@ function getHost(res, statusType, authToken, regionId, hostId){
   else{
     sendErrorResponse (res, localEnum.UNAUTHORIZED.value, localEnum.UNAUTHORIZED.key);
   }
-
-
 }
-/*
-function getHost(res, statusType, authToken, regionId, hostId){
-  //Entity.findOne({$and: [{"_id.type": "host" }, {"_id.id": /Trento/},{"attrs.value": "node-1"}  ]})
-  Entity.findOne({$and: [{"_id.type": /host_c/ }, {"_id.id": {$regex : regionId}}, {"attrs.value": hostId}  ] } ,function (err, host) { ddddddddddddd
-  //Entity.findOne({$and: [{"_id.type": "host" }, {"_id.id": {$regex : regionId+":"+hostId}}  ] } ,function (err, host) {
-    if (host && !(err)){
-      var tmp_res= {"_links": {"self": { "href": "" }}};
-      tmp_res._links.self={ "href": "/monitoring/regions/"+regionId+"/hosts/"+hostId}
-      tmp_res._links.services={ "href": "/monitoring/regions/"+regionId+"/hosts/"+hostId+"/services"}
-      new Date().getTime();
-      now=(Math.floor(Date.now() / 1000));
-      if(now-host.modDate<cfgObj.hostTTL){
-        tmp_res.regionid=regionId;
-        tmp_res.hostid=hostId;
-        if (host._id.type=="host_controller")
-          tmp_res.role="controller";
-        if (host._id.type=="host_compute")
-          tmp_res.role="compute";
-        tmp_cpu=0;
-        tmp_ram=0;
-        tmp_disk=0;
-        tmp_sys=0;
-        tmp_owd=0;
-        tmp_bwd=0;
-        tmp_time=0;
-        id_h= (host._id.id.split(":"))[1];
-        tmp_res.ipAddresses= [{"ipAddress": id_h}];
-        for (j=0; j<host.attrs.length;j++){
-          if (host.attrs[j].name && host.attrs[j].name.indexOf("ipAddresses") != -1){
-            if(host.attrs[j].value)
-              tmp_res.ipAddresses=host.attrs[j].value
-          }
-          else if (host.attrs[j].name && host.attrs[j].name.indexOf("owd_endpoint_dest_default") != -1){
-            if(host.attrs[j].value)
-              tmp_res.owd_endpoint_dest_default=host.attrs[j].value
-          }
-          else if (host.attrs[j].name && host.attrs[j].name.indexOf("bwd_endpoint_dest_default") != -1){
-            if(host.attrs[j].value)
-              tmp_res.bwd_endpoint_dest_default=host.attrs[j].value
-          }
-          else if (host.attrs[j].name && host.attrs[j].name.indexOf("owd_frequency") != -1){
-            if(host.attrs[j].value)
-              tmp_res.owd_frequency=host.attrs[j].value
-          }
-          else if (host.attrs[j].name && host.attrs[j].name.indexOf("bwd_frequency") != -1){
-            if(host.attrs[j].value)
-              tmp_res.bwd_frequency=host.attrs[j].value
-          }
-          else if (host.attrs[j].name && host.attrs[j].name.indexOf("cpuLoadPct") != -1){
-            if(host.attrs[j].value)tmp_cpu=host.attrs[j].value
-          }
-          else if (host.attrs[j].name && host.attrs[j].name.indexOf("usedMemPct") != -1){
-            if(host.attrs[j].value)tmp_ram=host.attrs[j].value
-          }
-          else if (host.attrs[j].name && host.attrs[j].name.indexOf("freeSpacePct") != -1){
-            if(host.attrs[j].value)tmp_disk=host.attrs[j].value
-          }
-          else if (host.attrs[j].name && host.attrs[j].name.indexOf("timestamp") != -1){
-            if(host.attrs[j].value)tmp_time=host.attrs[j].value
-          }
-          else if (host.attrs[j].name && host.attrs[j].name.indexOf("sysUptime") != -1){
-            if(host.attrs[j].value)tmp_sys=host.attrs[j].value
-          }
-          else if (host.attrs[j].name && host.attrs[j].name.indexOf("owd_status") != -1){
-            if(host.attrs[j].value)tmp_owd=host.attrs[j].value
-          }
-          else if (host.attrs[j].name && host.attrs[j].name.indexOf("bwd_status") != -1){
-            if(host.attrs[j].value)tmp_bwd=host.attrs[j].value
-          }
-        }
-      tmp_res.measures=[{"timestamp" : tmp_time, 
-                         "percCPULoad": {"value": tmp_cpu,"description": "desc"}, 
-                         "percRAMUsed": {"value": tmp_ram, "description": "desc" }, 
-                         "percDiskUsed": {"value": 100-parseInt(tmp_disk), "description": "desc"},
-                         "sysUptime": { "value": tmp_sys, "description": "desc"},
-                         "owd_status": { "value": tmp_owd, "description": "desc"},
-                         "bwd_status": {"value": tmp_bwd,"description": "desc"}}];
-      }
-      sendResponse (res, localEnum.OK.value, tmp_res);
-    }
-    else
-      sendErrorResponse (res, localEnum.NOT_FOUND.value, localEnum.NOT_FOUND.key) 
-  });//Here the find one finishes
-}
-*/
 
 
 
@@ -1390,11 +1336,6 @@ function getHostTime(res, statusType, authToken, regionId, hostId, sinceValue){
       actorIdArray=[]
       organizations=[];
 
-      //if (UserJson==null){
-        //console.log("Application")
-             //sendErrorResponse (res, localEnum.UNAUTHORIZED.value, localEnum.UNAUTHORIZED.key);
-      //  organizations.push({ id: localEnum.TRUSTED_APP, actorId: localEnum.TRUSTED_APP, displayName: 'TrustedApp', roles: [] } )
-     // }
       if (UserJson){
         actorId=UserJson.actorId;
         actorIdArray=[]
@@ -1402,10 +1343,7 @@ function getHostTime(res, statusType, authToken, regionId, hostId, sinceValue){
         if(UserJson.app_id) app_id=UserJson.app_id
         if(UserJson.organizations) organizations=UserJson.organizations;
         if (actorId)actorIdArray.push(actorId);
-     
-        //else{
-        //  sendErrorResponse (res, localEnum.UNAUTHORIZED.value, localEnum.UNAUTHORIZED.key);
-        //}
+
       }
 
 
@@ -1495,62 +1433,6 @@ function getHostTime(res, statusType, authToken, regionId, hostId, sinceValue){
 
 
 
-/*
-function getHostTime(res, statusType, authToken, regionId, hostId, sinceValue){
-  //HADOOP needed
-  var queryString = 'select * from host as t1 INNER JOIN (select distinct entityId,  hostname from host where hostname!="none" and hostname="'+hostId+'") as t2 ON t1.entityId=t2.entityId AND t1.timestampId>="'+sinceValue+'"';
-  //var queryString = 'select * from vm where entityId="'+regionId+'_'+vmId_+'" and timestampId>="'+sinceValue+'" order by timestampId';
-  connection.query(queryString, function(err, rows, fields) {
-  if (err){
-    sendErrorResponse (res, localEnum.NOT_FOUND.value, localEnum.NOT_FOUND.key)
-  }
-  else{
-    if (rows){ 
-    //create the structure
-    var tmp_res= {"_links": {"self": { "href": "" }}};
-    tmp_res._links.self={ "href": "/monitoring/regions/"+regionId+"/hosts/"+hostId}
-    tmp_res._links.services={ "href": "/monitoring/regions/"+regionId+"/hosts/"+hostId+"/services"}
-    
-
-    tmp_res.regionid = "Trento";
-    tmp_res.hostid   = hostId;
-    tmp_res.ipAddresses= [ { "ipAddress": "NaN" } ]
-    tmp_res.owd_endpoint_dest_default= "NaN",
-    tmp_res.bwd_endpoint_dest_default= "NaN",
-    tmp_res.owd_frequency= "NaN",
-    tmp_res.bwd_frequency= "NaN",
-    tmp_res.measures= [];
-    for (var t_h in rows){
-      tmp_res.ipAddresses[0].ipAddress=((rows[t_h].entityId).split('_'))[1];
-      var tmp_entry = {"timestamp" : "NaN", "percCPULoad": {"value": "NaN","description": "desc"}, "percRAMUsed": {"value": "NaN", "description": "desc" },"percDiskUsed": {"value": "NaN", "description": "desc"},  "sysUptime": { "value": "NaN", "description": "desc"},"owd_status": { "value": "NaN", "description": "desc"},"bwd_status": {"value": "NaN","description": "desc"}, "availability": {"value": "NaN","description": "desc"}}
-     console.log(rows[t_h]);
-      if (rows[t_h].timestampId) 
-        tmp_entry.timestamp=rows[t_h].timestampId
-      if (rows[t_h].avg_usedMemPct)
-        tmp_entry.percRAMUsed.value  = rows[t_h].avg_usedMemPct
-      if (rows[t_h].avg_freeSpacePct)
-        tmp_entry.percDiskUsed.value = (100-parseFloat(rows[t_h].avg_freeSpacePct)).toFixed(2);
-      if (rows[t_h].avg_cpuLoadPct)
-        tmp_entry.percCPULoad.value  = rows[t_h].avg_cpuLoadPct
-      if (rows[t_h].availability)
-        tmp_entry.availability.value = ((rows[t_h].availability)/0.6).toFixed(2);
-      tmp_res.measures.push(tmp_entry);
-    }
-    sendResponse (res, localEnum.OK.value, tmp_res);
-
-    //PARSE and FILL the measures array
-    }
-    else {
-      sendErrorResponse (res, localEnum.NOT_FOUND.value, localEnum.NOT_FOUND.key)
-    }
-  }
-
-sendResponse (res, localEnum.NOT_IMPLEMENTED.value, {"Error":localEnum.NOT_IMPLEMENTED.key});
-});
-}
-*/
-
-
 function getVmList(res, statusType, authToken, regionId){
   app_id=0;
   if (authToken){
@@ -1603,12 +1485,6 @@ function getVmList(res, statusType, authToken, regionId){
              app_id=UserJson.app_id
            }
            actorId=UserJson.actorId;
-           //if (actorId){
-           //  actorIdArray.push(actorId);
-           // }
-           //else{
-           //  sendErrorResponse (res, localEnum.UNAUTHORIZED.value, localEnum.UNAUTHORIZED.key);
-           //}
            organizations=UserJson.organizations;
          
            //nolonger used
@@ -1737,60 +1613,6 @@ function getVmList(res, statusType, authToken, regionId){
            sendErrorResponse (res, localEnum.NOT_FOUND.value, localEnum.NOT_FOUND.key)
          }
          }//if roles 
-         /*
-         else{
-           Entity.findOne({$and: [{"_id.type": "region" }, {"_id.id": regionId}] } ,function (err, region) {
-             if (err){
-               sendErrorResponse (res, localEnum.NOT_FOUND.value, localEnum.NOT_FOUND.key) 
-             }
-             else if (region && now-region.modDate<cfgObj.regionTTL){
-               tmp_res._links.self.href="/monitoring/regions/"+regionId+"/vms"
-               var vmList=[];
-	       if(region)
-                 for (i=0; i<region.attrs.length;i++){
-                   if(region.attrs[i].name.indexOf("vmList") != -1){
-                     if(region.attrs[i].value!=NaN && region.attrs[i].value.length>0){
-                       tmpVmList=region.attrs[i].value.split(";")
-                       for (j=0;j<tmpVmList.length; j++){
-                         if (tmpVmList[j].split(",").length>1){
-                           compareID=parseInt((tmpVmList[j].split(","))[8]);
-                           if(actorIdArray.indexOf(compareID) > -1){
-                             vmList.push(tmpVmList[j].split(","));
-                           }//endif actorIdArray
-                         }//endif tmpVmList
-                       }//endfor
-                       Entity.find({$and: [{"_id.type": "vm" }, {"_id.id": {$regex : regionId+".*"}}] } ,function (err, vmx){
-		         if(vmx){
-                           for (l=0; l<vmx.length;l++){
-                             if(now-vmx[l].modDate<cfgObj.vmTTL){
-                               ip_id=(vmx[l]._id.id).split(':')[1];
-                               vmList.forEach(function(entry) {
-                               //console.log(entry[0]+" vs "+ip_id)
-                               if (entry[0].indexOf(ip_id)!=-1){
-                                 tmp_vm={};
-                                 //id={};links={};self={};self.href=url_parts.pathname+'/'+ip_id;links.self=self;id=ip_id;tmp_vm._links=links;tmp_vm.id=id;
-                                 tmp_vm={"_links" : {"self": { "href": "/monitoring/regions/"+regionId+"/vms/"+ip_id }},"id": ip_id};
-                                 vms.push(tmp_vm);
-                               }//endif
-                             });//end for each
-                           }
-                           else continue;
-                         }//endfor
-                       }//endif vmx
-                       tmp_res.vms=vms;
-                       sendResponse (res, localEnum.OK.value, tmp_res);
-                     });//End find
-                   }//if
-                 }//if
-               }//for
-             //console.log(vms)
-             }//elseif
-             else{
-               sendErrorResponse (res, localEnum.NOT_FOUND.value, localEnum.NOT_FOUND.key) 
-              }//endelse
-            });//end finfOne
-          }//end else normal case
-          */
         });
       });
     }
@@ -2544,8 +2366,9 @@ function getServiceRegion(res, statusType, authToken, regionId){
 
 
 
-function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue){
+function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue, aggregate){
   /*HADOOP needed*/
+  //console.log (aggregate);
   var tmp_res_t={"_links": {"self": { "href": "" }},"measures":[{}]};;
   if (regionId){
     var tmpMesArray=[]
@@ -2553,7 +2376,7 @@ function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue){
     tmp_res_t.id=regionId;
     tmp_res_t.name=regionId;
     /*acquire historical data*/
-    queryString = 'select * from host_service where region="'+regionId+'" and UNIX_TIMESTAMP(timestampId) >= UNIX_TIMESTAMP("'+sinceValue+'") order by timestampId';
+    queryString = 'select * from host_service where region="'+regionId+'" and aggregationType="'+aggregate+'"  and UNIX_TIMESTAMP(timestampId) >= UNIX_TIMESTAMP("'+sinceValue+'") order by timestampId';
     connection.query(queryString, function(err, rows, fields) {
     if (err){
       sendErrorResponse (res, localEnum.NOT_FOUND.value, localEnum.NOT_FOUND.key)
@@ -2561,7 +2384,7 @@ function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue){
     else{
       base_struct={timestamp:0, nova:0, novaC:0, neutron:0, neutronC:0, cinder:0, cinderC:0, glance:0, glanceC:0, kp:0, kpC:0, tot:0, totC:0}
       tmpMes={};
-      tmpMes.timestamp            = 0;
+      tmpMes.timestamp            = null;
       tmpMes.novaServiceStatus    = {"value": "undefined",  "description": "description" };
       tmpMes.neutronServiceStatus = {"value": "undefined",  "description": "description" };
       tmpMes.cinderServiceStatus  = {"value": "undefined",  "description": "description" };
@@ -2570,55 +2393,56 @@ function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue){
       tmpMes.FiHealthStatus       = {"value": "undefined",  "description": "description" };
       tmpMes.OverallStatus        = {"value": "undefined",  "description": "description" };
       arrayBuild=[]
-      for (var i in rows) {
-        var present=0;
-        for (var j in arrayBuild){
-          //console.log(arrayBuild[j].timestamp+" vs "+ rows[i].timestampId)
-          if( (new Date(arrayBuild[j].timestamp).getTime() == new Date(rows[i].timestampId).getTime())){
+      for (var  ii=0;ii<rows.length; ii++) {
+       i=rows[ii]
+       present=0;
+        for (var jj=0; jj< arrayBuild.length; jj++){
+          j=arrayBuild[jj]
+          if( (new Date(arrayBuild[jj].timestamp).getTime() == new Date(rows[ii].timestampId).getTime())){
              //aggiorna
-            if (rows[i].serviceType.indexOf("nova") != -1){
-              arrayBuild[j].nova+=rows[i].avg_Uptime;
-              arrayBuild[j].novaC+=1;
+            if (rows[ii].serviceType.indexOf("nova") != -1){
+              arrayBuild[jj].nova+=rows[ii].avg_Uptime;
+              arrayBuild[jj].novaC+=1;
             }
-            if (rows[i].serviceType.indexOf("quantum") != -1){
-              arrayBuild[j].neutron+=rows[i].avg_Uptime;
-              arrayBuild[j].neutronC+=1;
+            if (rows[ii].serviceType.indexOf("quantum") != -1){
+              arrayBuild[jj].neutron+=rows[ii].avg_Uptime;
+              arrayBuild[jj].neutronC+=1;
             } 
-            if (rows[i].serviceType.indexOf("cinder") != -1){
-              arrayBuild[j].cinder+=rows[i].avg_Uptime;
-              arrayBuild[j].cinderC+=1;
+            if (rows[ii].serviceType.indexOf("cinder") != -1){
+              arrayBuild[jj].cinder+=rows[ii].avg_Uptime;
+              arrayBuild[jj].cinderC+=1;
             } 
-            if (rows[i].serviceType.indexOf("glance") != -1){
-              arrayBuild[j].glance+=rows[i].avg_Uptime;
-              arrayBuild[j].glanceC+=1;
+            if (rows[ii].serviceType.indexOf("glance") != -1){
+              arrayBuild[jj].glance+=rows[ii].avg_Uptime;
+              arrayBuild[jj].glanceC+=1;
             }
-            if (rows[i].serviceType.indexOf("sanity") != -1){
-              arrayBuild[j].sanity=rows[i].avg_Uptime;
+            if (rows[ii].serviceType.indexOf("sanity") != -1){
+              arrayBuild[jj].sanity=rows[ii].avg_Uptime;
             }
              present=1;
              continue;
           }
         }
         if (present==0){
-          t={timestamp:rows[i].timestampId, nova:0, novaC:0, neutron:0, neutronC:0, cinder:0, cinderC:0, glance:0, glanceC:0, kp:0, kpC:0, sanity:0};
-          if (rows[i].serviceType.indexOf("nova") != -1){
-            t.nova+=rows[i].avg_Uptime;
+          t={timestamp:new Date(rows[ii].timestampId) , nova:0, novaC:0, neutron:0, neutronC:0, cinder:0, cinderC:0, glance:0, glanceC:0, kp:0, kpC:0, sanity:0};
+          if (rows[ii].serviceType.indexOf("nova") != -1){
+            t.nova+=rows[ii].avg_Uptime;
             t.novaC+=1;
           }
-          else if (rows[i].serviceType.indexOf("quantum") != -1){
-            t.neutron+=rows[i].avg_Uptime;
+          else if (rows[ii].serviceType.indexOf("quantum") != -1){
+            t.neutron+=rows[ii].avg_Uptime;
             t.neutronC+=1;
           }   
-          else if (rows[i].serviceType.indexOf("cinder") != -1){
-            t.cinder+=rows[i].avg_Uptime;
+          else if (rows[ii].serviceType.indexOf("cinder") != -1){
+            t.cinder+=rows[ii].avg_Uptime;
             t.cinderC+=1;
           } 
-          else if (rows[i].serviceType.indexOf("glance") != -1){
-            t.glance+=rows[i].avg_Uptime;
+          else if (rows[ii].serviceType.indexOf("glance") != -1){
+            t.glance+=rows[ii].avg_Uptime;
             t.glanceC+=1;
           } 
-          else if (rows[i].serviceType.indexOf("sanity") != -1){
-            t.sanity=rows[i].avg_Uptime;
+          else if (rows[ii].serviceType.indexOf("sanity") != -1){
+            t.sanity=rows[ii].avg_Uptime;
           }
 
           //console.log(rows[i])
@@ -2630,16 +2454,21 @@ function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue){
         //tmpMesArray.push(tmpMes);
       }
       for (var f in arrayBuild){
+        var yyyy = arrayBuild[f].timestamp.getFullYear().toString();
+        var mm = (arrayBuild[f].timestamp.getMonth()+1).toString(); // getMonth() is zero-based
+        var dd  = arrayBuild[f].timestamp.getDate().toString();
+        var hh  = arrayBuild[f].timestamp.getHours().toString();
+        data=yyyy +"-"+ (mm[1]?mm:"0"+mm[0]) +"-"+(dd[1]?dd:"0"+dd[0])+"T"+(hh[1]?hh:"0"+hh[0]+":00:00");
         tmpMes={};
-        tmpMes.timestamp            = arrayBuild[f].timestamp;
-        tmpMes.novaServiceStatus    = {"value": "undefined",  "description": "description" };
-        tmpMes.neutronServiceStatus = {"value": "undefined",  "description": "description" };
-        tmpMes.cinderServiceStatus  = {"value": "undefined",  "description": "description" };
-        tmpMes.glanceServiceStatus  = {"value": "undefined",  "description": "description" };
+        tmpMes.timestamp            = data;
+        tmpMes.novaServiceStatus    = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+        tmpMes.neutronServiceStatus = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+        tmpMes.cinderServiceStatus  = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+        tmpMes.glanceServiceStatus  = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
         //hardcoded part
-        tmpMes.KPServiceStatus      = {"value": "green",  "description": "description" };
-        tmpMes.FiHealthStatus       = {"value": "undefined",  "description": "description" };
-        tmpMes.OverallStatus        = {"value": "undefined",  "description": "description" };
+        tmpMes.KPServiceStatus      = {"value": "green",  "value_clean":"undefined", "description": "description" };
+        tmpMes.FiHealthStatus       = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+        tmpMes.OverallStatus        = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
         if (arrayBuild[f].novaC==0){ tmpMes.novaServiceStatus.value=0; }
         if (arrayBuild[f].novaC!=0){
           tmpMes.novaServiceStatus.value=arrayBuild[f].nova/arrayBuild[f].novaC; 
@@ -2649,49 +2478,69 @@ function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue){
 
         }
 
-        if (arrayBuild[f].novaC==0){ tmpMes.novaServiceStatus.value="red"; }
+        if (arrayBuild[f].novaC==0){ 
+          tmpMes.novaServiceStatus.value="red";
+          tmpMes.novaServiceStatus.value_clean=0;
+        }
         if (arrayBuild[f].novaC!=0){ 
+          tmpMes.novaServiceStatus.value_clean=arrayBuild[f].nova/arrayBuild[f].novaC;
           if (arrayBuild[f].nova/arrayBuild[f].novaC>=0.9)           tmpMes.novaServiceStatus.value="green"
           else if (arrayBuild[f].nova/arrayBuild[f].novaC>=0.5 && arrayBuild[f].nova/arrayBuild[f].novaC<0.9)tmpMes.novaServiceStatus.value="yellow"
           else if(arrayBuild[f].nova/arrayBuild[f].novaC<0.5)        tmpMes.novaServiceStatus.value="red"
 
         }
 
-        if (arrayBuild[f].neutronC==0){                                                                                    tmpMes.neutronServiceStatus.value="red"; }
+        if (arrayBuild[f].neutronC==0){                                               
+          tmpMes.neutronServiceStatus.value="red";
+          tmpMes.neutronServiceStatus.value_clean=0;
+        }
         if (arrayBuild[f].neutronC!=0){ 
+          tmpMes.neutronServiceStatus.value_clean=arrayBuild[f].neutron/arrayBuild[f].neutronC;
           if (arrayBuild[f].neutron/arrayBuild[f].neutronC>=0.9)                                                           tmpMes.neutronServiceStatus.value="green"
           else if (arrayBuild[f].neutron/arrayBuild[f].neutronC>=0.5 && arrayBuild[f].neutron/arrayBuild[f].neutronC<0.9)  tmpMes.neutronServiceStatus.value="yellow"
           else if (arrayBuild[f].neutron/arrayBuild[f].neutronC<0.5)                                                       tmpMes.neutronServiceStatus.value="red"
 
         }
 
-        if (arrayBuild[f].cinderC==0){                                                                                   tmpMes.cinderServiceStatus.value="red"; }
+        if (arrayBuild[f].cinderC==0){                                                          
+          tmpMes.cinderServiceStatus.value="red"; 
+          tmpMes.cinderServiceStatus.value_clean=0;
+          }
         if (arrayBuild[f].cinderC!=0){
+          tmpMes.cinderServiceStatus.value_clean=arrayBuild[f].cinder/arrayBuild[f].cinderC;
           if (arrayBuild[f].cinder/arrayBuild[f].cinderC>=0.9)                                                           tmpMes.cinderServiceStatus.value="green"
           else if (arrayBuild[f].cinder/arrayBuild[f].cinderC>=0.5 && arrayBuild[f].cinder/arrayBuild[f].cinderC<0.9)    tmpMes.cinderServiceStatus.value="yellow"
           else if (arrayBuild[f].cinder/arrayBuild[f].cinderC<0.5)                                                       tmpMes.cinderServiceStatus.value="red"
 
         }
-        if (arrayBuild[f].glanceC==0){                                                                                   tmpMes.glanceServiceStatus.value="red"; }
+        if (arrayBuild[f].glanceC==0){       
+          tmpMes.glanceServiceStatus.value="red";
+          tmpMes.glanceServiceStatus.value_clean=0;
+        }
         if (arrayBuild[f].glanceC!=0){
+          tmpMes.glanceServiceStatus.value_clean=arrayBuild[f].glance/arrayBuild[f].glanceC;
           if (arrayBuild[f].glance/arrayBuild[f].glanceC>=0.9)                                                           tmpMes.glanceServiceStatus.value="green"
           else if (arrayBuild[f].glance/arrayBuild[f].glanceC>=0.5 && arrayBuild[f].glance/arrayBuild[f].glanceC<0.9)    tmpMes.glanceServiceStatus.value="yellow"
           else if (arrayBuild[f].glance/arrayBuild[f].glanceC<0.5)                                                       tmpMes.glanceServiceStatus.value="red"
-
         }
-
-        if (arrayBuild[f].sanity==0){                                     tmpMes.FiHealthStatus.value="red"; }
+        if (arrayBuild[f].sanity==0){                                    
+          tmpMes.FiHealthStatus.value="red"; 
+          tmpMes.FiHealthStatus.value_clean=0;
+        }
         if (arrayBuild[f].sanity!=0){
+          tmpMes.FiHealthStatus.value_clean=arrayBuild[f].sanity;
           if (arrayBuild[f].sanity>=0.9)                                  tmpMes.FiHealthStatus.value="green"
           else if (arrayBuild[f].sanity>=0.5 && arrayBuild[f].sanity<0.9) tmpMes.FiHealthStatus.value="yellow"
           else if (arrayBuild[f].sanity<0.5)                              tmpMes.FiHealthStatus.value="red"
-
         }
-
         denom=arrayBuild[f].novaC+arrayBuild[f].neutronC+arrayBuild[f].cinderC+arrayBuild[f].glanceC+1;
         nom=arrayBuild[f].nova+arrayBuild[f].neutron+arrayBuild[f].cinder+arrayBuild[f].glance+1;
-        if (denom==0){                              tmpMes.OverallStatus .value="red"; }
+        if (denom==0){                              
+          tmpMes.OverallStatus.value="red"; 
+          tmpMes.OverallStatus.value_clean=0;
+        }
         if (denom!=0){ 
+          tmpMes.OverallStatus.value_clean=nom/denom;
           if((nom/denom)>=0.9)                          tmpMes.OverallStatus .value="green"
           else if ((nom/denom)>=0.5 && (nom/denom)<0.9) tmpMes.OverallStatus .value="yellow"
           else if ((nom/denom)<0.5)                     tmpMes.OverallStatus .value="red"
@@ -2699,7 +2548,136 @@ function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue){
         }
       tmpMesArray.push(tmpMes)
       }
-         
+    //console.log (aggregate)
+    /*fill empty days*/
+    //dateTimestamp=(Math.floor(Date.now() / 1000));
+    now=new Date()
+    date = new Date(sinceValue.split(' ').join('T'))
+    var yyyy = date.getFullYear().toString();
+    var mm = (date.getMonth()+1).toString(); // getMonth() is zero-based
+    var dd  = date.getDate().toString();
+    var hh  = date.getUTCHours().toString();
+    //dataClean=yyyy +"-"+ (mm[1]?mm:"0"+mm[0]) +"-"+(dd[1]?dd:"0"+dd[0])+"T"+(hh[1]?hh:"0"+hh[0]+":00:00");
+  
+    if (aggregate=='h'){
+      dataClean=yyyy +"-"+ (mm[1]?mm:"0"+mm[0]) +"-"+(dd[1]?dd:"0"+dd[0])+"T"+(hh[1]?hh:"0"+hh[0]);
+      dataClean=dataClean+":00"
+    }
+    else if (aggregate=='d')
+      dataClean=yyyy +"-"+ (mm[1]?mm:"0"+mm[0]) +"-"+(dd[1]?dd:"0"+dd[0])+"T00:00:00"; 
+    else if (aggregate=='m')
+      dataClean=yyyy +"-"+ (mm[1]?mm:"0"+mm[0]) +"-01T00:00:00";
+
+    dataC=new Date(dataClean);
+
+    if (aggregate=="h"){
+      //console.log ("hours...........")
+      while (now>dataC){
+        equal="NO"
+        for (var pars in tmpMesArray){
+          if(tmpMesArray[pars].timestamp.split('T')[1].split(':').length==1){
+            tmpMesArray[pars].timestamp=tmpMesArray[pars].timestamp+":00:00"
+          }
+          else if(tmpMesArray[pars].timestamp.split('T')[1].split(':').length==2)
+            tmpMesArray[pars].timestamp=tmpMesArray[pars].timestamp+":00"
+            //console.log("empty")
+          arrayDate= new Date(tmpMesArray[pars].timestamp);
+          equal="NO"
+          if (arrayDate.getFullYear()==dataC.getFullYear() && arrayDate.getMonth()==dataC.getMonth() && arrayDate.getDate()==dataC.getDate() && arrayDate.getHours()==dataC.getHours()){
+            equal="SI"
+            break;
+          }
+        }
+        if (equal=="NO" && (  dataC.getFullYear()<=now.getFullYear() &&  dataC.getMonth()<=now.getMonth() && dataC.getDate()<now.getDate() ) ){
+          var yyyy = dataC.getFullYear().toString();
+          var mm = (dataC.getMonth()+1).toString(); // getMonth() is zero-based
+          var dd  = dataC.getDate().toString();
+          var hh  = dataC.getHours().toString();
+          dataToInsert=yyyy +"-"+ (mm[1]?mm:"0"+mm[0]) +"-"+(dd[1]?dd:"0"+dd[0])+"T"+(hh[1]?hh:"0"+hh[0])+":00:00";
+          tmpMes={};
+          tmpMes.timestamp            = dataToInsert;
+          tmpMes.novaServiceStatus    = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+          tmpMes.neutronServiceStatus = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+          tmpMes.cinderServiceStatus  = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+          tmpMes.glanceServiceStatus  = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+          tmpMes.KPServiceStatus      = {"value": "green",      "value_clean":"undefined", "description": "description" };
+          tmpMes.FiHealthStatus       = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+          tmpMes.OverallStatus        = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+          tmpMesArray.push(tmpMes)
+        }
+        dataC.setHours(dataC.getHours() + 1)
+       }
+     }
+    else if (aggregate=="d"){
+      //console.log ("days...........")
+      while (now>dataC){
+        equal="NO"
+        for (var pars in tmpMesArray){
+          arrayDate= new Date(tmpMesArray[pars].timestamp);
+          equal="NO"
+          if (arrayDate.getFullYear()==dataC.getFullYear() && arrayDate.getMonth()==dataC.getMonth() && arrayDate.getDate()==dataC.getDate()){
+            equal="SI"
+            break;
+          }
+        }
+        if (equal=="NO" && dataC.getDate()!=now.getDate() ){
+          var yyyy = dataC.getFullYear().toString();
+          var mm = (dataC.getMonth()+1).toString(); // getMonth() is zero-based
+          var dd  = dataC.getDate().toString();
+          var hh  = dataC.getHours().toString();
+          dataToInsert=yyyy +"-"+ (mm[1]?mm:"0"+mm[0]) +"-"+(dd[1]?dd:"0"+dd[0])+"T00:00:00";
+          tmpMes={};
+          tmpMes.timestamp            = dataToInsert;
+          tmpMes.novaServiceStatus    = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+          tmpMes.neutronServiceStatus = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+          tmpMes.cinderServiceStatus  = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+          tmpMes.glanceServiceStatus  = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+          tmpMes.KPServiceStatus      = {"value": "green",  "value_clean":"undefined", "description": "description" };
+          tmpMes.FiHealthStatus       = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+          tmpMes.OverallStatus        = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+          tmpMesArray.push(tmpMes)
+        }
+        dataC.setDate(dataC.getDate() + 1)
+      }
+
+    }
+    else if (aggregate=="m"){
+      //console.log ("month...........")
+      while (now>dataC){
+        equal="NO"
+        for (var pars in tmpMesArray){
+          arrayDate= new Date(tmpMesArray[pars].timestamp);
+          equal="NO"
+          if (arrayDate.getFullYear()==dataC.getFullYear() && arrayDate.getMonth()==dataC.getMonth()){
+          if (tmpMesArray[pars].timestamp==dataC){
+            equal="SI"
+            break;
+          }
+        }
+        //if (equal=="NO"){
+        if (equal=="NO" && (  dataC.getFullYear()<=now.getFullYear() &&  dataC.getMonth()<now.getMonth() ) )
+          var yyyy = dataC.getFullYear().toString();
+          var mm = (dataC.getMonth()+1).toString(); // getMonth() is zero-based
+          var dd  = dataC.getDate().toString();
+          var hh  = dataC.getHours().toString();
+          dataToInsert=yyyy +"-"+ (mm[1]?mm:"0"+mm[0]) +"-01T00:00:00";
+          tmpMes={};
+          tmpMes.timestamp            = dataToInsert;
+          tmpMes.novaServiceStatus    = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+          tmpMes.neutronServiceStatus = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+          tmpMes.cinderServiceStatus  = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+          tmpMes.glanceServiceStatus  = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+          tmpMes.KPServiceStatus      = {"value": "green",  "value_clean":"undefined", "description": "description" };
+          tmpMes.FiHealthStatus       = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+          tmpMes.OverallStatus        = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
+          tmpMesArray.push(tmpMes)
+        }
+        dataC.setMonth(dataC.getMonth() + 1)
+      }
+
+    }
+
+    //for(var l = 0 in ;
     tmp_res_t.measures=tmpMesArray;  
     }
     sendResponse (res, localEnum.OK.value, tmp_res_t);
@@ -2745,8 +2723,8 @@ function getNesTime(res, statusType, authToken, regionId, nesId, sinceValue){
 
 function sendResponse (res, status, tmp_res){
   res.writeHead(status, {'Content-Type':'application/json'});
-  res.end(JSON.stringify(tmp_res));
-}
+  //console.log(JSON.stringify(tmp_res))
+  res.end(JSON.stringify(tmp_res)); }
 
 function sendErrorResponse (res, status, errorTxt){
   res.writeHead(status, {'Content-Type': 'application/json', });
@@ -2814,6 +2792,4 @@ if (listApp.indexOf(idList)!=-1){
 else
   return false;
 }
-
-
 
