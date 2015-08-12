@@ -9,7 +9,14 @@ or things you think should be included but are not. You can use [github issues](
 
 ## Overall description
 
-Federation Monitoring API is a [NodeJS](https://nodejs.org/) application that can be easily configured and modified. Ths application is based on Node.js: an open source, cross-platform runtime environment for server-side and networking applications. This repository is composed by 4 flies:
+Federation Monitoring API is a [NodeJS](https://nodejs.org/) application that can be easily configured and modified. Ths application is based on Node.js: an open source, cross-platform runtime environment for server-side and networking applications. Thi application is a part of structured minitoring system developed inside the XIFI project. This component retrieve information by several distributed tools (i.e. Orion, Cosmos,) and export them to the endusers.
+![alt text](http://wiki.fi-xifi.eu/wiki/images/thumb/c/cf/Federation_Monitoring.png/800px-Federation_Monitoring.png "The federation monitoring architecture")
+API provides information, for example about the [Openstack](https://www.openstack.org/) installation, the CPU utilzation (CPU, RAM, DISK). The information schema that can be provided by the Federation Monitoring API is the presented in this image.
+![alt text](http://wiki.fi-xifi.eu/wiki/images/thumb/5/5d/Monitoring-dataModel.png/800px-Monitoring-dataModel.png "The federation monitoring API information schema")
+
+An overview of the API information is described at this [page](http://docs.federationmonitoring.apiary.io/)
+
+This repository is composed by 4 files:
 * monitoringAPI.js: the main program file
 * api.cfg: the configuration file
 * package.json: the dependencies file
@@ -39,6 +46,7 @@ The software that are required are:
 * [FIWARE pep Proxy](https://github.com/ging/fi-ware-pep-proxy)
 * [mysql](https://www.mysql.com/)
 * [mongoDB](https://www.mongodb.org/)
+In order to obtain a complete federetion monitoring system please consider to istall all the XIFI federation monitoring components in your region, following the [manual](http://wiki.fi-xifi.eu/Public:Federation_Monitoring#Installation_Manual)
 
 ### Installation
 
@@ -109,33 +117,8 @@ In order to check the status of the Federation Monitoring API, it is sufficient 
 
 In order to test the Federation Monitoring API, a user can use CURL commands by requiring a token to the IDM and then sending a proper request to the pep-proxy in front to the API. Another solution is using this simple [testAPI-script](https://github.com/SmartInfrastructures/xifi-script/blob/master/testAPI.js) that has been developed (NodeJS) for testing poupose. 
 
-### Ent-to-end tests
-
-The acceptance tests can be executed in the following way:
-
-<<<<....>>>>>
-
-Please have a look to the section ... in order to get more information about how to prepare the environment to run the functional_test target.
-
-### Unit tets
-
-The unit_test ...:
-
-    .....
-
-Please have a look to the section ... in order to get more information about how to prepare the environment to run the unit_test target.
-
 ## Advanced topics:
-
-* Installation and administration
-  * [Building from sources](doc/manuals/admin/build_source.md)
-  * [Running GlanceSync from command line](doc/manuals/admin/cli.md)
-  * [Logs](doc/manuals/admin/logs.md)
-  * [Resources & I/O Flows](doc/manuals/admin/resources.md)
-  * [Problem diagnosis procedures](doc/manuals/admin/diagnosis.md)
-* Container-based deployment
-  * [Vagrant](doc/manuals/vagrant.md)
-  * [Sample code contributions](doc/manuals/code_contributions.md)
+missing
 
 ## License
 
