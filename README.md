@@ -7,6 +7,8 @@ This project is part of [FIWARE](http://www.fiware.org).
 Any feedback on this documentation is highly welcome, including bugs, typos
 or things you think should be included but are not. You can use [github issues](https://github.com/SmartInfrastructures/xifi-monitoringAPI/issues/new) to provide feedback.
 
+[Top](#top)
+
 ## Description
 
 Federation Monitoring API is a [NodeJS](https://nodejs.org/) application that can be easily configured and modified. This application is based on Node.js: an open source, cross-platform runtime environment for server-side and networking applications. This application is a part of the structured monitoring system developed inside the XIFI project. This component retrieves information by several distributed tools (i.e. Orion, Cosmos,) and export them to the end-users. Moreover he API service is protected by a [proxy](https://github.com/ging/fi-ware-pep-proxy) that evaluates the user's credentials through an oauth2 system.
@@ -22,6 +24,8 @@ The official software repository (on GitHub) is composed by four files:
 * package.json: the dependencies file
 * LICENSE: the license file
 * README.md: the file with the main information
+
+[Top](#top)
 
 ## Features Implemented
 
@@ -45,6 +49,8 @@ This tool provides information about the platform and export it through API inte
 The monitoringAPI, if integrated with the [FIWARE pep Proxy](https://github.com/ging/fi-ware-pep-proxy) will provide also an authentication/autorization system, that filters the available information taking into account the user's role inside the FIWARE project.
 
 A complete reference about all the API can be found [here](http://docs.federationmonitoring.apiary.io/)
+
+[Top](#top)
 
 ## Installation Manual
 
@@ -132,6 +138,8 @@ However expert users can setup it a service (*i.e. using nohup*).
 This tool can help the normal user to put the application working "like" a linux service. For more information have a look to this link:
 * [nohup](http://linux.die.net/man/1/nohup) linux background
 
+[Top](#top)
+
 ## Installation Verification
 
 In order to check the status of this tool is sufficient to check the status of the NodeJS process. After that, it is possible to test also the Federation Monitoring API status by using CURL commands. This process is a tow steps process:
@@ -140,16 +148,27 @@ In order to check the status of this tool is sufficient to check the status of t
 
 Another solution is using this simple [script](https://github.com/SmartInfrastructures/xifi-script/blob/master/testAPI.js) that has been developed (NodeJS) for testing purpose. This script manages the handshake for the token request (IDM), and then it is able to perform an API request to your test/production API installation.
 
+[Top](#top)
+
 ## User Manual:
 The user manual is not provided in this *Readme.md* file. User can easily use this restful webserver, by simple calling the API. For more information about some API URL examples have a look at the [apiary page](http://docs.federationmonitoring.apiary.io/)
 
+[Top](#top)
+
 ## Known Issues
 The main issues about this tools are linked to its interaction with the pep-proxy. This requires a bit of expertise on OAUTH2 system. As a matter of fat users do not interact directly with the API, but they communicate to the PEP proxy interface.
+
+[Top](#top)
 
 ## Link to github
 [This](https://github.com/attybro/xifi-monitoringAPI) is the official Github repository:
 * https://github.com/attybro/xifi-monitoringAPI
 
+[Top](#top)
+
 ## License
 
 This tool is licensed under Apache v2.0 license.
+
+
+[Top](#top)
