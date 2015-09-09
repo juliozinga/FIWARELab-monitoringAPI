@@ -48,8 +48,9 @@ A complete reference about all the API can be found [here](http://docs.federatio
 
 ## Installation Manual
 
-The recommended procedure is to install follow the Nodejs standard:
-1. install NodeJs (and also [npm](https://www.npmjs.com/) ), there are several guides or tutorial about that. User can install it from the official repositories or please have a look at the [Nodejs download section](https://nodejs.org/download/))
+The recommended steps for installing this tool are:
+
+1. install NodeJs (and also [npm](https://www.npmjs.com/) ), there are several guides or tutorials about that. User can install it from the official repositories: ["Nodejs download section"](https://nodejs.org/download/)
 2. configure the file api.cfg with the proper values (i.e. samples temporal validity range, KP endpoint information)
 3. install the dependencies 
 ..* npm install
@@ -59,7 +60,7 @@ The recommended procedure is to install follow the Nodejs standard:
 
 ### Requirements
 
-The software that are required are:
+Required softwares are:
 * [git](https://github.com/) download and manage the software
 * [NodeJS](https://nodejs.org/) the server side runtime environment
   * body-parser (nodejs package)
@@ -102,6 +103,7 @@ The configuration used by the Federation Monitoring API component is stored in t
     "h2hTTL":"000",
     "defaultTTL":"000"
     }
+
 These fields are mandatory, and they are used by the api in order to obtain the filter informarions.
 * KPurl: set the KeyStone URL or IP
 * KPusr: set the KeyStone username that has been provided by the KP administrator
