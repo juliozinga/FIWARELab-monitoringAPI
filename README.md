@@ -9,7 +9,7 @@ or things you think should be included but are not. You can use [github issues](
 
 ## Description
 
-Federation Monitoring API is a [NodeJS](https://nodejs.org/) application that can be easily configured and modified. This application is based on Node.js: an open source, cross-platform runtime environment for server-side and networking applications. This application is a part of the structured monitoring system developed inside the XIFI project. This component retrieves information by several distributed tools (i.e. Orion, Cosmos,) and export them to the end-users.
+Federation Monitoring API is a [NodeJS](https://nodejs.org/) application that can be easily configured and modified. This application is based on Node.js: an open source, cross-platform runtime environment for server-side and networking applications. This application is a part of the structured monitoring system developed inside the XIFI project. This component retrieves information by several distributed tools (i.e. Orion, Cosmos,) and export them to the end-users. Moreover he API service is protected by a [proxy](https://github.com/ging/fi-ware-pep-proxy) that evaluates the user's credentials through an oauth2 system.
 ![alt text](http://wiki.fi-xifi.eu/wiki/images/thumb/c/cf/Federation_Monitoring.png/800px-Federation_Monitoring.png "The federation monitoring architecture")
 API provides information, for example about the [Openstack](https://www.openstack.org/) installation, the CPU usage (CPU, RAM, DISK). The information schema that can be provided by the Federation Monitoring API is the presented in this image.
 ![alt text](http://wiki.fi-xifi.eu/wiki/images/thumb/5/5d/Monitoring-dataModel.png/800px-Monitoring-dataModel.png "The federation monitoring API information schema")
@@ -27,20 +27,20 @@ The official software repository (on GitHub) is composed by four files:
 
 This tool provides information about the platform and export it through API interface. Users can obtain information about
 * Region (%RAM, %CPU, %DISK, #IP, ...)
- * list of regions
- * live information about a region
- * historical information about a region
+ * *list of regions*
+ * *live information about a region*
+ * *historical information about a region*
 * Virtual machine (%RAM, %CPU, %DISK, ... )
- * list of VMs ()
- * live information about a VM
- * historical information about a VM
+ * *list of VMs per region*
+ * *live information about a VM*
+ * *historical information about a VM*
 * Host (%RAM, %CPU, %DISK, ... )
- * list of hosts
- * live information about a host
- * historical information about a host
+ * *list of hosts per region*
+ * *live information about a host*
+ * *historical information about a host*
 * Host service (nova, cinder, sanity_check, ...)
- * live information about the host_services per region
- * historical information about the host_services per region
+ * *live information about the host_services per region*
+ * *historical information about the host_services per region*
 
 The monitoringAPI, if integrated with the [FIWARE pep Proxy](https://github.com/ging/fi-ware-pep-proxy) will provide also an authentication/autorization system, that filters the available information taking into account the user's role inside the FIWARE project.
 
