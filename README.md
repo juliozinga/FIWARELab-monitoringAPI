@@ -1,17 +1,17 @@
-# XIFI - Federation Monitoring API Component
+# FIWARELab - Federation Monitoring API Component
 
 This is the code repository for the federation monitoring API component, the FIWARE tool used to provide information to user/app by a RESTFUL service.
 
 This project is part of [FIWARE](http://www.fiware.org).
 
 Any feedback on this documentation is highly welcome, including bugs, typos
-or things you think should be included but are not. You can use [github issues](https://github.com/SmartInfrastructures/xifi-monitoringAPI/issues/new) to provide feedback.
+or things you think should be included but are not. You can use [github issues](https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/issues/new) to provide feedback.
 
 [Top](#top)
 
 ## Description
 
-Federation Monitoring API is a [NodeJS](https://nodejs.org/) application that can be easily configured and modified. This application is based on Node.js: an open source, cross-platform runtime environment for server-side and networking applications. This application is a part of the structured monitoring system developed inside the XIFI project. This component retrieves information by several distributed tools (i.e. Orion, Cosmos,) and export them to the end-users. Moreover he API service is protected by a [proxy](https://github.com/ging/fi-ware-pep-proxy) that evaluates the user's credentials through an oauth2 system.
+Federation Monitoring API is a [NodeJS](https://nodejs.org/) application that can be easily configured and modified. This application is based on Node.js: an open source, cross-platform runtime environment for server-side and networking applications. This application is a part of the structured monitoring system developed inside the FIWARE project. This component retrieves information by several distributed tools (i.e. Orion, Cosmos,) and export them to the end-users. Moreover he API service is protected by a [proxy](https://github.com/ging/fi-ware-pep-proxy) that evaluates the user's credentials through an oauth2 system.
 ![alt text](http://wiki.fi-xifi.eu/wiki/images/thumb/c/cf/Federation_Monitoring.png/800px-Federation_Monitoring.png "The federation monitoring architecture")
 API provides information, for example about the [Openstack](https://www.openstack.org/) installation, the CPU usage (CPU, RAM, DISK). The information schema that can be provided by the Federation Monitoring API is the presented in this image.
 ![alt text](http://wiki.fi-xifi.eu/wiki/images/thumb/5/5d/Monitoring-dataModel.png/800px-Monitoring-dataModel.png "The federation monitoring API information schema")
@@ -161,8 +161,8 @@ The main issues about this tools are linked to its interaction with the pep-prox
 [Top](#top)
 
 ## Link to github
-[This](https://github.com/attybro/xifi-monitoringAPI) is the official Github repository:
-* https://github.com/attybro/xifi-monitoringAPI
+[This](https://github.com/attybro/FIWARELab-monitoringAPI) is the official Github repository:
+* https://github.com/attybro/FIWARELab-monitoringAPI
 
 [Top](#top)
 
