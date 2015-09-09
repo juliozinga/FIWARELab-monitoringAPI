@@ -7,7 +7,7 @@ This project is part of [FIWARE](http://www.fiware.org).
 Any feedback on this documentation is highly welcome, including bugs, typos
 or things you think should be included but are not. You can use [github issues](https://github.com/SmartInfrastructures/xifi-monitoringAPI/issues/new) to provide feedback.
 
-## Overall description
+## Description 
 
 Federation Monitoring API is a [NodeJS](https://nodejs.org/) application that can be easily configured and modified. Ths application is based on Node.js: an open source, cross-platform runtime environment for server-side and networking applications. Thi application is a part of structured minitoring system developed inside the XIFI project. This component retrieve information by several distributed tools (i.e. Orion, Cosmos,) and export them to the endusers.
 ![alt text](http://wiki.fi-xifi.eu/wiki/images/thumb/c/cf/Federation_Monitoring.png/800px-Federation_Monitoring.png "The federation monitoring architecture")
@@ -23,7 +23,30 @@ This repository is composed by 4 files:
 * LICENSE: the license file
 * README.md: the file with the main information 
 
-## Build and Install
+## Features Implemented
+
+This tool provides information about the platfom. User can obtain information about
+* Region (%RAM, %CPU, %DISK, #IP, ...)
+ * list of regions
+ * live information about a region
+ * historical information about a region
+* Virtual machine (%RAM, %CPU, %DISK, ... )
+ * list of VMs ()
+ * live information about a VM
+ * historical information about a VM
+* Host (%RAM, %CPU, %DISK, ... )
+ * list of hosts
+ * live information about a host
+ * historical information about a host
+* Host sercvice (nova, cinder, sanity_check, ...)
+ * live information about the host_services per region
+ * historical information about the host_services per region 
+
+The monitoringAPI, if integrated with the [FIWARE pep Proxy](https://github.com/ging/fi-ware-pep-proxy) will provide also an authentication/autorization system, that filters the available information taking into accout the user's role inside the FIWARE project.
+ 
+A complete reference about all the API can be found [here](http://docs.federationmonitoring.apiary.io/)
+
+## Installation Manual
 
 The recommended procedure is to install follow the Nodejs standard:
 1. install NodeJs (and also [npm](https://www.npmjs.com/) ), there are several guides or tutorial about that. User can install it from the official repositories or please have a look at the [Nodejs download section](https://nodejs.org/download/))
@@ -42,27 +65,17 @@ The software that are required are:
   * body-parser (nodejs package)
   * mongoose (nodejs package)
   * stylus (nodejs package)
-* [npm](https://www.npmjs.com/) (the package manager)
-* [FIWARE pep Proxy](https://github.com/ging/fi-ware-pep-proxy)
-* [mysql](https://www.mysql.com/)
-* [mongoDB](https://www.mongodb.org/)
+* the [npm](https://www.npmjs.com/) package manager
+*  the [FIWARE pep Proxy](https://github.com/ging/fi-ware-pep-proxy) used in order to protect the API
+* the [mysql](https://www.mysql.com/) database
+* [mongoDB](https://www.mongodb.org/) 
+
 In order to obtain a complete federetion monitoring system please consider to istall all the XIFI federation monitoring components in your region, following the [manual](http://wiki.fi-xifi.eu/Public:Federation_Monitoring#Installation_Manual)
 
 ### Installation
 
 Once the main packages are installed only an additional steop is required: install the nodejs dependencies. This can be done by using npm
 * npm install 
-
-#### Optional packages
-
-This tool can help the normal user to put the application working "like" a linux service: 
-* [nohup](http://linux.die.net/man/1/nohup) linux background 
-
-## Running
-
-Once installed, there is a way to run this application manually
-* node node monitoringAPI.js
-However expert user can setup it a service
 
 ### Configuration file
 
@@ -109,17 +122,32 @@ These fields are mandatory, and they are used by the api in order to obtain the 
 * h2hTTL: set the valid time-range for the information of a host2host
 * defaultTTL: set the default valid time-range for a generic information
 
-### Checking status
+### How to run it
 
-In order to check the status of the Federation Monitoring API, it is sufficient to check the status of the NodeJS process, or try to call the API (see the following section)
+Once installed, there is a way to run this application manually
+* node monitoringAPI.js
+However expert user can setup it a service
 
-## Testing
+#### Optional packages
 
-In order to test the Federation Monitoring API, a user can use CURL commands by requiring a token to the IDM and then sending a proper request to the pep-proxy in front to the API. Another solution is using this simple [testAPI-script](https://github.com/SmartInfrastructures/xifi-script/blob/master/testAPI.js) that has been developed (NodeJS) for testing poupose. 
+This tool can help the normal user to put the application working "like" a linux service: 
+* [nohup](http://linux.die.net/man/1/nohup) linux background 
 
-## Advanced topics:
+## Installation Verification
+
+In order to check the status of this tool is sufficient to check the status of the NodeJS process. After that is posssible to test also the Federation Monitoring API status by using CURL commands that require a token to the IDM and then send a proper request to the pep-proxy in front to the API.
+Another solution is using this simple [testAPI-script](https://github.com/SmartInfrastructures/xifi-script/blob/master/testAPI.js) that has been developed (NodeJS) for testing poupose. This script manages the handshake for the token request (IDM), ann then it is able to perform and API request to your test/production API installation.
+
+## User Manual:
 missing
+
+## Known Issues
+missing
+
+##Link to github
+[This](https://github.com/attybro/xifi-monitoringAPI) is the official Github repository:
+* https://github.com/attybro/xifi-monitoringAPI
 
 ## License
 
-GlanceSync is licensed under Apache v2.0 license.
+This tool is licensed under Apache v2.0 license.
