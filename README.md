@@ -161,8 +161,8 @@ The main issues about this tools are linked to its interaction with the pep-prox
 [Top](#top)
 
 ## Link to github
-[This](https://github.com/attybro/FIWARELab-monitoringAPI) is the official Github repository:
-* https://github.com/attybro/FIWARELab-monitoringAPI
+[This](https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI) is the official Github repository:
+* https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI
 
 [Top](#top)
 
