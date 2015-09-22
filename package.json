@@ -1,6 +1,6 @@
 {
   "name": "monitoring-api",
-  "version": "0.3.0",
+  "version": "2.1.0",
   "main": "monitoringAPI.js",
   "dependencies": {
     "body-parser": "~1.0.1",
