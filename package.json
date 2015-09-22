@@ -1,6 +1,7 @@
 {
-  "name": "node-api",
-  "main": "newAPI.js",
+  "name": "monitoring-api",
+  "version": "0.3.0",
+  "main": "monitoringAPI.js",
   "dependencies": {
     "body-parser": "~1.0.1",
     "express": "~4.0.0",
