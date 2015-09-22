@@ -1,9 +1,10 @@
 /***********************************/
 // Copyright 2015 Create-net.org   //  
 // All Rights Reserved.            //
-// date :27-07-2015                //
+// date :22-09-2015                //
 // author: attybro                 //
-// monitoringAPI for XiFi project  //
+// versiom: 2.1.0                  //
+// monitoringAPI for FIWARELab Prj //
 /***********************************/
 
 fs   = require('fs');
