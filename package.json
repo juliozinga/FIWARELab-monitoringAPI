@@ -3,10 +3,13 @@
   "version": "2.1.0",
   "main": "monitoringAPI.js",
   "dependencies": {
-    "body-parser": "~1.0.1",
-    "express": "~4.0.0",
-    "mongoose": "~3.6.13",
-    "stylus": "^0.52.0"
+    "bootstrap":"latest",
+    "enum":"latest",
+    "mongoose":"latest",
+    "oauth":"latest",
+    "moment":"latest",
+    "request":"latest",
+    "mysql":"latest"
   },
   "description": "This is the code repository for the federation monitoring API component, the FIWARE tool used to provide information to user/app by a RESTFUL service.",
   "devDependencies": {},

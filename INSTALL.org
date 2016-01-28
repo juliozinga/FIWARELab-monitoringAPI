@@ -1,0 +1,5 @@
+* HowTo startup the web-service
+  #+BEGIN_EXAMPLE
+  npm install
+  node monitoringAPI.js
+  #+END_EXAMPLE
