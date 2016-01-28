@@ -7,5 +7,20 @@
     "express": "~4.0.0",
     "mongoose": "~3.6.13",
     "stylus": "^0.52.0"
-  }
+  },
+  "description": "This is the code repository for the federation monitoring API component, the FIWARE tool used to provide information to user/app by a RESTFUL service.",
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/issues"
+  },
+  "homepage": "https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI#readme"
 }
