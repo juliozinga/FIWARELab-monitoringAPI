@@ -20,12 +20,13 @@ request = require('request');
 p=0
 
 var mysql = require('mysql');                                                                                                                                                                        
-
+var confObj = readConf();
 var db_config = {
-    host    : 'xxx',
-    user    : 'xxx',
-    password: 'xxx',
-    database: 'xxx'
+    host    : confObj.mysql_host,
+    user    : confObj.mysql_user,
+    port    : confObj.mysql_port,
+    password: confObj.mysql_password,
+    database: confObj.mysql_database    
 };
 
 
@@ -125,6 +126,13 @@ if (argv.length != 3) {
 }
 }
 process.exit(-2)
+}
+
+function readConf() {
+    var data = fs.readFileSync(check_file(process.argv),'utf8');
+    if(data && IsJsonString(data)){
+        return JSON.parse(data);                            
+    }
 }
 
 function main(config_file) {
