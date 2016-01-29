@@ -20,7 +20,6 @@ request = require('request');
 p=0
 
 var mysql = require('mysql');                                                                                                                                                                        
-var IDMurl='';
 
 var db_config = {
     host    : 'xxx',
@@ -105,22 +104,38 @@ localEnum = new Enum({
 });
 
 connection.connect(function(err) {
-  main();
+  config_file = check_file(process.argv)
+  main(config_file);
 
 });
 //connection.end();
 //main();
 
+function check_file(argv)
+{
+if (argv.length != 3) {
+  console.log("No input config file.\nPlease use: " + argv[1] + " <config file>")
+  process.exit(-1)
+} else {
+	if (fs.existsSync(argv[2])) {
+    return argv[2];
+	} else {
+      console.log('File ' + argv[2] + ' not found!');
+      process.exit(-1)
+}
+}
+process.exit(-2)
+}
 
-
-function main() {
-fs.readFile('/usr/local/monitoring/API/hybrid/api.cfg', 'utf8', function (err,data) {
+function main(config_file) {
+fs.readFile(config_file, 'utf8', function (err,data) {
   if (err) {
     return console.log(err);
   }
   else if(data && IsJsonString(data)){
     
     cfgObj = JSON.parse(data);
+    localEnum['TRUSTED_APP'] = cfgObj.trusted_app
     if(cfgObj && cfgObj.KPurl && cfgObj.KPusr  && cfgObj.KPpwd   && cfgObj.IDMurl && cfgObj.apiIPaddress && cfgObj.apiPort && cfgObj.mongoIP && cfgObj.mongoDBname && cfgObj.regionTTL && cfgObj.hostTTL && cfgObj.vmTTL && cfgObj.serviceTTL && cfgObj.h2hTTL){
       //enable server
 optionsKP = {
