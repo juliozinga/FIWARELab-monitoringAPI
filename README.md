@@ -61,7 +61,7 @@ The recommended steps for installing this tool are:
 3. install the dependencies
   * npm install
 4. run the restful Nodejs application:
-  * node monitoringAPI.js
+  * node monitoringAPI.js <config file>
 
 ### Requirements
 
@@ -106,7 +106,8 @@ The configuration used by the Federation Monitoring API component is stored in t
     "vmTTL":"000",
     "serviceTTL":"000",
     "h2hTTL":"000",
-    "defaultTTL":"000"
+    "defaultTTL":"000",
+    "trusted_app" : ["app1", "app2"]
     }
 
 These fields are mandatory, and they are used by the API filter and retrieve the information.
@@ -128,11 +129,11 @@ These fields are mandatory, and they are used by the API filter and retrieve the
 * serviceTTL: set the valid time-range for the information of a service
 * h2hTTL: set the valid time-range for the information of a host2host
 * defaultTTL: set the default valid time-range for a generic information
-
+* trusted_app: list of valid app id 
 ### How to run it
 
 Once installed, the application can be run manually as:
-* node monitoringAPI.js
+* node monitoringAPI.js <config file>
 
 However expert users can setup it a service (*i.e. using nohup*).
 This tool can help the normal user to put the application working "like" a linux service. For more information have a look to this link:
@@ -146,7 +147,18 @@ In order to check the status of this tool is sufficient to check the status of t
 1. require a token to the IDM (oath2)
 2. send a proper request (GET) to the pep-proxy that stands in front of the API
 
-Another solution is using this simple [script](https://github.com/SmartInfrastructures/xifi-script/blob/master/testAPI.js) that has been developed (NodeJS) for testing purpose. This script manages the handshake for the token request (IDM), and then it is able to perform an API request to your test/production API installation.
+### Obtain token:
+To obtain the token use 'get_token.js' app in this way:
+
+```
+node get_token.js "username" "password" "auth_url"
+```
+
+It prints the token that can bu used in this way:
+
+```
+curl -H "Authorization:Bearer <token>" -s 127.0.0.1:1027/monitoring/regions/Trento/hosts
+```
 
 [Top](#top)
 
