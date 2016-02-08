@@ -1,3 +1,5 @@
 argparse==1.2.1
 bottle==0.12.9
 requests==2.9.1
+bottle-mongo==0.3.0
+bottle-mysql==0.2.2
