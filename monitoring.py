@@ -10,6 +10,7 @@ import sys
 import time
 import json
 import urllib2
+import datetime
 
 #Main bottle app
 app = Bottle()
@@ -95,7 +96,7 @@ def get_all_regions(mongodb):
     if request.query.getone('since') is not None:
         since = request.query.getone('since')
 
-    result = mongodb['entities'].find({"_id.type":"region"})
+    result = mongodb[app.config.get("collectionname")].find({"_id.type":"region"})
     now = int(time.time())
     for region in result:
         if region["_id"]["id"] not in particular_region:
@@ -222,10 +223,117 @@ def get_all_regions(mongodb):
 
 @app.route('/monitoring/regions/<regionid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/', method='GET')
-def get_region(regionid="ID of the region"):
+def get_region(mongodb, regionid="ID of the region"):
+    if regionid == "Berlin":
+        abort(404)
+
+    since = None
     if request.query.getone('since') is not None:
-        print request.query.getone('since')
-    return {regionid}
+        since = request.query.getone('since')
+
+    region = mongodb[app.config.get("collectionname")].find_one({"$and": [{"_id.type": "region" }, {"_id.id": regionid}] })
+
+    tmp_res = {"_links": {"self": { "href": "" }, "hosts" : ""}, "measures":[]}
+    tmp_res["_links"]["self"]["href"] = "/monitoring/regions/" + regionid
+    tmp_A = {}
+    ram_allocation_ratio = "1.5"
+    cpu_allocation_ratio = "16.0"
+    tmp_res["id"] = ""
+    tmp_res["name"] = ""
+    tmp_res["country"] = ""
+    tmp_res["latitude"] = ""
+    tmp_res["longitude"] = ""
+    tmp_res["nb_cores"] = ""
+    tmp_res["nb_cores_enabled"] = ""
+    tmp_res["nb_cores_used"] = ""
+    tmp_res["nb_ram"] = ""
+    tmp_res["nb_disk"] = ""
+    tmp_res["nb_vm"] = ""
+    tmp_res["power_consumption"] = ""
+    tmp_res["timestamp"] = datetime.datetime.now().isoformat()
+    nb_ram_used = 0
+    nb_disk_used = 0
+    vms = 0
+
+    tmp_res["_links"]["hosts"] = {"href":"/monitoring/regions/"+regionid+"/hosts"}
+    tmp_res["id"] = regionid;
+    tmp_res["name"] = regionid;
+
+    for att in region["attrs"]:
+        if att["name"] and att["name"].find("location") == 0:
+            if att["value"]:
+                tmp_res["country"] = att["value"]
+        if att["name"] and att["name"].find("ipUsed") != -1:
+             if att["value"]:
+                 tmp_A["ipAssigned"] = att["value"]
+        if att["name"] and att["name"].find("ipAvailable") != -1:
+             if att["value"]:
+                 tmp_A["ipAllocated"] = att["value"]
+        if att["name"] and att["name"].find("ipTot") != -1:
+             if att["value"]:
+                 tmp_A["ipTot"] = att["value"]
+        if att["name"] and att["name"].find("cpu_allocation_ratio") != -1:
+             if att["value"]:
+                cpu_allocation_ratio = att["value"]
+                tmp_A["cpu_allocation_ratio"] = att["value"]
+        if att["name"] and att["name"].find("ram_allocation_ratio") != -1:
+            if att["value"]:
+                ram_allocation_ratio = att["value"]
+                tmp_A["ram_allocation_ratio"] = att["value"]
+        if att["name"] and att["name"].find("latitude") != -1:
+             if att["value"]:
+                 tmp_res["latitude"] = att["value"]
+        if att["name"] and att["name"].find("longitude") != -1:
+             if att["value"]:
+                 tmp_res["longitude"] = att["value"]
+        if att["name"] and att["name"].find("coreUsed") != -1:
+             if att["value"]:
+                 tmp_res["nb_cores_used"] = int(att["value"])
+                 tmp_A["nb_cores_used"] = int(att["value"])
+        if att["name"] and att["name"].find("coreEnabled") != -1:
+             if att["value"]:
+                 tmp_res["nb_cores_enabled"] = int(att["value"])
+                 tmp_A["nb_cores_enabled"] = int(att["value"])
+        if att["name"] and att["name"].find("coreTot") != -1:
+             if att["value"]:
+                 tmp_res["nb_cores"] = int(att["value"])
+                 tmp_A["nb_cores"] = int(att["value"])
+        if att["name"] and att["name"].find("ramTot") != -1:
+             if att["value"]:
+                 tmp_res["nb_ram"] = int(att["value"])
+                 tmp_A["nb_ram"] = int(att["value"])
+        if att["name"] and att["name"].find("ramUsed") != -1:
+            if att["value"]:
+                nb_ram_used=int(att["value"])
+        if att["name"] and att["name"].find("hdTot") != -1:
+             if att["value"]:
+                 tmp_res["nb_disk"] = int(att["value"])
+                 tmp_A["nb_disk"] = int(att["value"])
+        if att["name"] and att["name"].find("hdUsed") != -1:
+            if att["value"]:
+                nb_disk_used = int(att["value"])
+        if att["name"] and att["name"].find("vmList") != -1:
+            for vm in att["value"].split(";"):
+                if vm.find("ACTIVE") != -1:
+                    vms = vms + 1
+            tmp_res["nb_vm"] = vms
+            tmp_A["nb_vm"] = vms
+
+    tmp_res["measures"].append(tmp_A)
+
+    if tmp_A["nb_ram"] != 0:
+        tmp_A["percRAMUsed"] = nb_ram_used/(tmp_A["nb_ram"] * float(1.5))
+    else:
+        tmp_A["percRAMUsed"]  = 0
+
+    if tmp_A["nb_disk"] != 0:
+        tmp_A["percDiskUsed"] = nb_disk_used/tmp_A["nb_disk"]
+    else:
+        tmp_A["percDiskUsed"] = 0
+
+    datetime.datetime.now().isoformat()
+
+    return tmp_res
 
 @app.route('/monitoring/regions/<regionid>/hosts', method='GET')
 @app.route('/monitoring/regions/<regionid>/hosts/', method='GET')
@@ -337,6 +445,8 @@ def load_mongo_section(config):
             mongo_config['uri'] = "mongodb://" + ConfigSectionMap('mongodb', config)['url']
         if ConfigSectionMap('mongodb', config)['dbname']:
             mongo_config['db'] = ConfigSectionMap('mongodb', config)['dbname']
+        if ConfigSectionMap('mongodb', config)['collectionname']:
+            app.config["collectionname"] = ConfigSectionMap('mongodb', config)['collectionname']
         mongo_config["json_mongo"] = True
         plugin = MongoPlugin(**mongo_config)
     except Exception as e:
