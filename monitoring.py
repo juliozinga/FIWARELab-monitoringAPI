@@ -299,11 +299,13 @@ def get_host2hosts():
 # /monitoring/host2hosts/source;dest?since=since
 # /monitoring/host2hosts/source/dest?since=since
 
+#Argument management
 def arg_parser():
     parser = argparse.ArgumentParser(description='Monitoring python version')
     parser.add_argument("-c", "--config-file", help="Config file", required=False)
     return parser.parse_args()
 
+#Function that return the dict of a section in a config file
 def ConfigSectionMap(section, Config):
     dict1 = {}
     options = Config.options(section)
@@ -317,6 +319,44 @@ def ConfigSectionMap(section, Config):
             dict1[option] = None
     return dict1
 
+#Return variables declared in config file in [api] section
+def load_api_section(config):
+    try:
+        listen_url = ConfigSectionMap('api', config)['listen_url']
+        listen_port = ConfigSectionMap('api', config)['listen_port']
+    except Exception as e:
+        print("Error in loading api section: {}").format(e)
+        sys.exit(-1)
+    return listen_url, listen_port
+
+#Return map variables declared in config file in [mongodb] section
+def load_mongo_section(config):
+    try:
+        mongo_config = {}
+        if ConfigSectionMap('mongodb', config)['url']:
+            mongo_config['uri'] = "mongodb://" + ConfigSectionMap('mongodb', config)['url']
+        if ConfigSectionMap('mongodb', config)['dbname']:
+            mongo_config['db'] = ConfigSectionMap('mongodb', config)['dbname']
+        mongo_config["json_mongo"] = True
+        plugin = MongoPlugin(**mongo_config)
+    except Exception as e:
+        print("Error in mongodb: {}").format(e)
+        sys.exit(-1)
+    return mongo_config
+
+#Load variables declared in config file in [idm] section and load it to Bottle app.
+#These variables can be getted from route function using app.config.get('variable')
+def load_idm_section(config):
+    try:
+        app.config["token_url"] = ConfigSectionMap('idm', config)['token_url']
+        app.config["service_url"] = ConfigSectionMap('idm', config)['service_url']
+        app.config["idm_username"] = ConfigSectionMap('idm', config)['username']
+        app.config["idm_password"] = ConfigSectionMap('idm', config)['password']
+    except Exception as e:
+        print("Error in IDM config: {}").format(e)
+        sys.exit(-1) 
+
+#Main function
 def main():
     args = arg_parser()
     if args.config_file is not None:
@@ -324,6 +364,7 @@ def main():
     else:
         config_file = "config.ini"
 
+    #Read config file
     try:
         Config = ConfigParser.ConfigParser()
         Config.read(config_file)
@@ -331,37 +372,14 @@ def main():
         print("Problem with config file: {}").format(e)
         sys.exit(-1)
 
-    try:
-        listen_url = ConfigSectionMap('api', Config)['listen_url']
-        listen_port = ConfigSectionMap('api', Config)['listen_port']
-    except Exception as e:
-        print("Error in loading api section: {}").format(e)
-        sys.exit(-1)
+    #Load from Config file
+    listen_url, listen_port = load_api_section(Config)
+    plugin = MongoPlugin(**load_mongo_section(Config))
+    load_idm_section(Config) 
 
-    try:
-        mongo_config = {}
-        if ConfigSectionMap('mongodb', Config)['url']:
-            mongo_config['uri'] = "mongodb://" + ConfigSectionMap('mongodb', Config)['url']
-        if ConfigSectionMap('mongodb', Config)['dbname']:
-            mongo_config['db'] = ConfigSectionMap('mongodb', Config)['dbname']
-        mongo_config["json_mongo"] = True
-        plugin = MongoPlugin(**mongo_config)
-    except Exception as e:
-        print("Error in mongodb: {}").format(e)
-        sys.exit(-1)
-
-    try:
-        app.config["token_url"] = ConfigSectionMap('idm', Config)['token_url']
-        app.config["service_url"] = ConfigSectionMap('idm', Config)['service_url']
-        app.config["idm_username"] = ConfigSectionMap('idm', Config)['username']
-        app.config["idm_password"] = ConfigSectionMap('idm', Config)['password']
-    except Exception as e:
-        print("Error in IDM config: {}").format(e)
-        sys.exit(-1)   
-
-    #dumps(mongodb['entities'].find({"_id.type":"vm", "_id.id":{'$regex':'Trento'}}))
     app.install(plugin)
 
+    #App runs in infinite loop
     run(app, host=listen_url, port=listen_port, debug=True)
 
 if __name__ == '__main__':
