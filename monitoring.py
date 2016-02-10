@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+from __future__ import division
 from bottle import route, run, request, error, response, Bottle, redirect, HTTPError, abort
 from pymongo import MongoClient, database
 from bottle.ext.mongo import MongoPlugin
@@ -11,6 +11,8 @@ import time
 import json
 import urllib2
 import datetime
+import math
+
 
 #Main bottle app
 app = Bottle()
@@ -265,7 +267,7 @@ def get_region(mongodb, regionid="ID of the region"):
                 tmp_res["country"] = att["value"]
         if att["name"] and att["name"].find("ipUsed") != -1:
              if att["value"]:
-                 tmp_A["ipAssigned"] = att["value"]
+                 tmp_A[" "] = att["value"]
         if att["name"] and att["name"].find("ipAvailable") != -1:
              if att["value"]:
                  tmp_A["ipAllocated"] = att["value"]
@@ -335,6 +337,242 @@ def get_region(mongodb, regionid="ID of the region"):
 
     return tmp_res
 
+@app.route('/monitoring/regions/<regionid>/services', method='GET')
+@app.route('/monitoring/regions/<regionid>/services/', method='GET')
+def get_all_services_by_region(mongodb, regionid="ID of the region"):
+    since = None
+    if request.query.getone('since') is not None:
+        since = request.query.getone('since')
+
+    tmp_res={"_links": {"self": { "href": "" }},"measures":[{}]}
+    novaActive = 0
+    novaTot = 0
+    cinderActive = 0
+    cinderTot = 0
+    quantumActive = 0
+    quantumTot = 0
+    qL3 = 0
+    qL3Status = 0
+    qDhcp = 0
+    qDhcpStatus = 0
+    glanceActive = 0
+    glanceTot = 0
+    servActive = 0
+    servTot = 0
+    kpActive = 0
+    kpTot = 0
+    sanActive = 0
+    sanTot = 0
+    sanTime = 0
+
+    services = mongodb[app.config.get("collectionname")].find({"$and": [{"_id.type": "host_service" }, {"_id.id": {"$regex" : regionid+':'}}] })
+    regionInfo = mongodb[app.config.get("collectionname")].find_one({"$and": [{"_id.type": "region" }, {"_id.id": regionid}] })
+    now = int(time.time())
+
+    for att in regionInfo["attrs"]:
+        if att["name"].find("sanity") != -1:
+            if att["name"] == "sanity_check_timestamp":
+                sanTime = math.floor(float(att["value"])/1000)
+            else:
+                sanActive += 1
+                tmp_val = 0
+                if att["value"] == "OK":
+                    tmp_val = 1
+                if att["value"] == "POK":
+                    tmp_val = 0.75
+                if att["value"] == "NOK":
+                    tmp_val = 0
+                sanTot = sanTot + tmp_val
+
+    service_list = ["nova", "cinder", "glance", "keystone-proxy"]
+    for service in services:
+        tmpId = service["_id"]["id"]
+        if service["_id"]["id"].split(':')[0]:
+            region_id = service["_id"]["id"].split(':')[0]
+        if service["_id"]["id"].split(':')[1]:
+            node_id = service["_id"]["id"].split(':')[1]
+        if service["_id"]["id"].split(':')[2]:
+            service_id = service["_id"]["id"].split(':')[2]
+
+        if service_id and service["attrs"][0]["value"]:
+            servVal = service["attrs"][0]["value"]
+            servTot += 1
+            if servVal == 1:
+                servActive += 1
+            if service_id.find("nova") != -1:
+                novaTot += 1;
+                if servVal==1:
+                    novaActive += 1;
+            elif service_id.find("cinder") != -1:
+                cinderTot += 1;
+                if servVal == 1:
+                    cinderActive += 1
+            elif service_id.find("glance") != -1:
+                glanceTot += 1
+                if servVal == 1:
+                     glanceActive += 1
+            elif service_id.find("keystone-proxy") != -1:
+                kpTot += 1
+                if servVal == 1:
+                    kpActive += 1
+            elif service_id.find("quantum-l3-agent") != -1:
+                qL3 += 1
+                if servVal == 1:
+                    qL3Status = 1
+            elif service_id.find("quantum-dhcp-agent") != -1:
+                qDhcp += 1
+                if servVal == 1:
+                    qDhcpStatus = 1
+            elif service_id.find("quantum-dhcp-agent") == -1 and service_id.find("quantum-l3-agent") == -1 and service_id.find("quantum") != -1:
+                quantumTot += 1
+                if servVal == 1:
+                    quantumActive += 1
+
+    nova = "undefined"
+    cinder = "undefined"
+    quantum = "undefined"
+    glance = "undefined"
+    idm = "undefined"
+    serv = "undefined"
+    kp = "undefined"
+    san = "undefined"
+
+    if qDhcpStatus == 1:
+        quantumActive += 1
+    if qDhcpStatus == 1:
+        quantumActive += 1
+    if qL3Status == 1:
+        quantumActive += 1
+    if novaActive and novaTot and novaTot > 0:
+        if novaActive/novaTot >= 0.9:
+            nova = "green"
+        elif novaActive/novaTot < 0.99 and novaActive/novaTot >= 0.5:
+            nova = "yellow"
+        elif novaActive/novaTot < 0.5  and novaActive/novaTot > 0:
+            nova = "red"
+
+    if cinderActive and cinderTot and cinderTot>0:
+        if cinderActive/cinderTot >= 0.99:
+            cinder = "green"
+        elif cinderActive/cinderTot<0.99 and cinderActive/cinderTot>=0.5:
+            cinder="yellow"
+        elif cinderActive/cinderTot<0.5  and cinderActive/cinderTot>0:
+            cinder="red"
+
+    if quantumActive and quantumTotand:
+        quantumTot>0
+        if quantumActive/quantumTot>=0.9:
+            quantum="green"
+        elif quantumActive/quantumTot<0.9 and quantumActive/quantumTot>=0.2:
+            quantum="yellow"
+        elif quantumActive/quantumTot<0.2  and quantumActive/quantumTot>0:
+            quantum="red"
+
+    if glanceActive and glanceTot and glanceTot>0:
+        if glanceActive/glanceTot>=0.99:
+            glance="green"
+        elif glanceActive/glanceTot<0.99 and glanceActive/glanceTot>=0.5:
+            glance="yellow"
+        elif glanceActive/glanceTot<0.5 and glanceActive/glanceTot>0:
+            glance="red"
+
+    if kpActive and kpTot and kpTot>0:
+        if kpActive/kpTot>=0.99:
+            kp="green"
+        elif kpActive/kpTot<0.99 and kpActive/kpTot>=0.5:
+            kp="yellow"
+        elif kpActive/kpTot<0.5 and kpActive/kpTot>0:
+            kp="red"
+
+    cnt = 0
+    tot = 0
+
+    if sanActive==0 or sanTot==0:
+        san="red"
+    elif sanActive and sanTot:
+        if sanTot/sanActive>=0.9:
+            san="green"
+        elif sanTot/sanActive<0.9 and sanTot/sanActive>=0.5:
+            san="yellow"
+        elif sanTot/sanActive<0.5:
+            san="red"
+
+    if glance=="green":
+        cnt += 1
+        tot = tot+2
+    elif glance=="yellow":
+        cnt += 1
+        tot = tot+1
+    elif glance=="red":
+        cnt += 1
+
+    if cinder=="green":
+        cnt += 1
+        tot=tot+2
+    elif cinder=="yellow":
+        cnt += 1
+        tot=tot+1
+    elif cinder=="red":
+        cnt += 1
+
+    if quantum=="green":
+        cnt += 1
+        tot=tot+2
+    elif quantum=="yellow":
+        cnt += 1
+        tot=tot+1
+    elif quantum=="red":
+        cnt += 1
+
+    if nova=="green":
+        cnt += 1
+        tot=tot+2
+    elif nova=="yellow":
+        cnt += 1
+        tot=tot+1
+    elif nova=="red":
+        cnt += 1
+
+    if idm=="green":
+        cnt += 1
+        tot=tot+2
+    elif idm=="yellow":
+        cnt += 1
+        tot=tot+1
+    elif idm=="red":
+        cnt += 1
+
+    if kp=="green":
+        cnt += 1
+        tot=tot+2
+    elif kp=="yellow":
+        cnt += 1
+        tot=tot+1
+    elif kp=="red":
+        cnt += 1
+
+    if cnt == 0:
+        serv = "undefined"
+    else:
+        if tot/(cnt*2)>=0.99:
+            serv="green"
+        elif (tot/(cnt*2)>=0.5 and tot/(cnt*2)<0.99):
+            serv="yellow"
+        elif (tot/(cnt*2)>=0 and tot/(cnt*2)<0.5):
+            serv="red"
+
+    kp="green"
+    tmp_measures=[{"timestamp" : "2013-12-20 12.00",
+                    "novaServiceStatus"   : {"value": nova,   "description": "desc"},
+                    "neutronServiceStatus": {"value": quantum,"description": "desc"},
+                    "cinderServiceStatus" : {"value": cinder, "description": "desc"},
+                    "glanceServiceStatus" : {"value": glance, "description": "desc"},
+                    "KPServiceStatus"     : {"value": kp,     "description": "desc"},
+                    "OverallStatus"       : {"value": serv,   "description": "desc"},
+                    "FiHealthStatus"      : {"value": san,    "description": "desc"} }]
+    tmp_res["measures"]= tmp_measures
+    return tmp_res
+
 @app.route('/monitoring/regions/<regionid>/hosts', method='GET')
 @app.route('/monitoring/regions/<regionid>/hosts/', method='GET')
 def get_all_hosts(regionid="ID of the region"):
@@ -379,13 +617,6 @@ def get_all_services_by_vm(regionid="ID of the region", vmid="ID of the vm"):
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/services/<serviceName>/', method='GET')
 def get_service_by_vm(regionid="ID of the region", vmid="ID of the vm", serviceName="Service name"):
     since = request.query.getone('since')
-    return {}
-
-@app.route('/monitoring/regions/<regionid>/services', method='GET')
-@app.route('/monitoring/regions/<regionid>/services/', method='GET')
-def get_all_services_by_region(regionid="ID of the region"):
-    since = request.query.getone('since')
-    aggregate = request.query.getone('aggregate')
     return {}
 
 @app.route('/monitoring/regions/<regionid>/nes', method='GET')
