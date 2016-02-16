@@ -14,9 +14,31 @@ import requests
 import datetime
 import math
 import bottle_mysql
+import base64
 
 #Main bottle app
 app = Bottle()
+
+def is_idm_authorized(auth_url, token_base64):
+    try:
+        token_string = token_base64
+        #token_string = base64.b64decode(token_base64)
+    except Exception as e:
+        print("Error in decoding token. Maybe is not in base64 format")
+        return False
+    try:
+        url_request = auth_url + "/user/?access_token=" + token_string
+        headers = {}
+        headers['accept'] = 'application/json'
+        headers['user-group'] = 'none'
+        req = urllib2.Request(url_request)
+        req.headers = headers
+        response = urllib2.urlopen(req)
+        UserJson = response.read()
+    except Exception as e:
+        print "Error in authentication: " + str(e)
+        return False
+    return True
 
 def get_keypass_token(username, password, url):
     data = { 'auth': {'identity': { 'methods': ['password'],
@@ -41,6 +63,18 @@ def request_to_idm(username, password, keypass_url, url):
         return response
     return None
 
+def get_token(response):
+    if request.headers.get("Authorization") is not None:
+        token = request.headers.get("Authorization").split(" ")[1]
+    else:
+        return None
+    auth_map = {}
+    if request.headers.get("Authorization").find("X-Auth-Token") != -1:
+        auth_map["X-Auth-Token"] = token
+    else:
+        auth_map["Bearer"] = token
+    return auth_map
+
 @app.error(404)
 def error404(error):
     response.content_type = 'application/json'
@@ -49,7 +83,7 @@ def error404(error):
 @app.error(401)
 def error401(error):
     response.content_type = 'application/json'
-    return {'UNAUTHORIZED'}
+    return json.dumps('UNAUTHORIZED')
 
 '''
 Make the request to old monitoring api
@@ -60,17 +94,22 @@ def make_request(request_url, request):
     base_url = "http://" + app.config.get("old_monitoring_url") + ":" + app.config.get("old_monitoring_port")
     url_request = base_url + request_url + options_from_request(request)
     try:
-        req = requests.get(url_request)
+        req = urllib2.Request(url_request)
+        token_map = get_token(request)
+        if token_map is not None:
+            req.headers["Authorization"] = " ".join(token_map.iteritems().next())
+        response = urllib2.urlopen(req)
+    except urllib2.HTTPError as e:
+        return 'UNAUTHORIZED'
     except Exception as e:
         return {}
-    return json.loads(req.text)
+    return response.read()
 
 '''
 Given an API request return a map with the option after '?'
 in the url
 '''
 def map_from_request(request):
-    import pdb; pdb.set_trace()
     avaible_options = ["since", "h"]
     map = {}
     for i in avaible_options:
@@ -98,83 +137,104 @@ def root():
 @app.route('/monitoring/regions', method='GET')
 @app.route('/monitoring/regions/', method='GET')
 def get_all_regions():
-    return make_request("/monitoring/regions", request=request)
+    out = make_request("/monitoring/regions", request=request)
+    return json.dumps( make_request("/monitoring/regions", request=request) )
 
 @app.route('/monitoring/regions/<regionid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/', method='GET')
 def get_region(regionid="ID of the region"):
-    return make_request(
-        "/monitoring/regions/" + regionid, request=request)
+    return json.dumps(make_request(
+        "/monitoring/regions/" + regionid, request=request))
 
 @app.route('/monitoring/regions/<regionid>/services', method='GET')
 @app.route('/monitoring/regions/<regionid>/services/', method='GET')
 def get_all_services_by_region(db, regionid="ID of the region"):
-    return make_request(
-        "/monitoring/regions/" + regionid + "/services", request=request)
+    return json.dumps(make_request(
+        "/monitoring/regions/" + regionid + "/services", request=request))
 
 @app.route('/monitoring/regions/<regionid>/hosts', method='GET')
 @app.route('/monitoring/regions/<regionid>/hosts/', method='GET')
 def get_all_hosts(regionid="ID of the region"):
-    return make_request(
-        "/monitoring/regions/" + regionid + "/hosts", request=request)
+    return json.dumps(make_request(
+        "/monitoring/regions/" + regionid + "/hosts", request=request))
 
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>/', method='GET')
 def get_host(regionid="ID of the region", hostid="ID of the host"):
-    return make_request(
-        "/monitoring/regions/" + regionid + "/hosts/" + hostid, request=request)
+    return json.dumps(make_request(
+        "/monitoring/regions/" + regionid + "/hosts/" + hostid, request=request))
 
 @app.route('/monitoring/regions/<regionid>/vms', method='GET')
 @app.route('/monitoring/regions/<regionid>/vms/', method='GET')
 def get_all_vms(regionid="ID of the region"):
-    return make_request(
-        "/monitoring/regions/" + regionid + "/vms/" , request=request)
+    return json.dumps(make_request(
+        "/monitoring/regions/" + regionid + "/vms/" , request=request))
 
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/', method='GET')
 def get_vm(regionid="ID of the region", vmid="ID of the vm"):
-    return make_request(
-        "/monitoring/regions/" + regionid + "/vms/" + vmid, request=request)
+    return json.dumps(make_request(
+        "/monitoring/regions/" + regionid + "/vms/" + vmid, request=request))
 
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>/services', method='GET')
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>/services/', method='GET')
 def get_all_services_by_host(regionid="ID of the region", hostid="ID of the host"):
-    return make_request(
-        "/monitoring/regions/" + regionid + "/hosts/" + hostid + "/services", request=request)
+    return json.dumps(make_request(
+        "/monitoring/regions/" + regionid + "/hosts/" + hostid + "/services", request=request))
 
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>/services/<serviceName>', method='GET')
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>/services/<serviceName>/', method='GET')
 def get_service_by_host(regionid="ID of the region", hostid="ID of the host", serviceName="Service name"):
-    return make_request(
-        "/monitoring/regions/" + regionid + "/hosts/" + hostid + "/services/" + serviceName , request=request)
+    return json.dumps(make_request(
+        "/monitoring/regions/" + regionid + "/hosts/" + hostid + "/services/" + serviceName , request=request))
 
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/services', method='GET')
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/services/', method='GET')
 def get_all_services_by_vm(regionid="ID of the region", vmid="ID of the vm"):
-    return make_request(
-        "/monitoring/regions/" + regionid + "/vms/" + vmid + "/services", request=request)
+    return json.dumps(make_request(
+        "/monitoring/regions/" + regionid + "/vms/" + vmid + "/services", request=request))
 
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/services/<serviceName>', method='GET')
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/services/<serviceName>/', method='GET')
 def get_service_by_vm(regionid="ID of the region", vmid="ID of the vm", serviceName="Service name"):
-    return make_request(
-        "/monitoring/regions/" + regionid + "/vms/" + vmid + "services/" + serviceName, request=request)
+    return json.dumps(make_request(
+        "/monitoring/regions/" + regionid + "/vms/" + vmid + "services/" + serviceName, request=request))
 
 @app.route('/monitoring/regions/<regionid>/nes', method='GET')
 @app.route('/monitoring/regions/<regionid>/nes/', method='GET')
 def get_all_nes(regionid="ID of the region"):
-    return make_request("/monitoring/regions/" + regionid + "/nes/", request=request)
+    return json.dumps(make_request("/monitoring/regions/" + regionid + "/nes/", request=request))
 
 @app.route('/monitoring/regions/<regionid>/nes/<neid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/nes/<neid>/', method='GET')
 def get_ne(regionid="ID of the region", neid="ID of the network"):
-    return make_request("/monitoring/regions/" + regionid + "/nes/" + neid, request=request)
+    return json.dumps(make_request("/monitoring/regions/" + regionid + "/nes/" + neid, request=request))
 
 @app.route('/monitoring/host2hosts', method='GET')
 @app.route('/monitoring/host2hosts/', method='GET')
 def get_host2hosts():
     print "Call to forward"
     return {}
+
+@app.route('/monitoring/regions/<regionid>/images', method='GET')
+@app.route('/monitoring/regions/<regionid>/images/', method='GET')
+def get_all_images_by_region(db, regionid="ID of the region"):
+    # 1)Check if is authorized
+    if is_idm_authorized( auth_url=app.config.get("idm_account_url"), token_base64=get_token(response).iteritems().next()[1] ):
+        print "is auth"
+    else:
+        abort(401)
+    # 2)Get data from mongodb
+    # 3)Return data
+    return False#return {'To be implemented'}
+
+@app.route('/monitoring/regions/<regionid>/images/<imageid>', method='GET')
+@app.route('/monitoring/regions/<regionid>/images/<imageid>/', method='GET')
+def get_all_images_by_region(mongodb, regionid="ID of the region", imageid="Image id"):
+    # 1)Check if is authorized
+    # 2)Get data from mongodb
+    # 3)Return data
+    return json.dumps("to be implemented here")
 
 # /monitoring/host2hosts/source;dest?since=since
 # /monitoring/host2hosts/source/dest?since=since
@@ -258,8 +318,9 @@ def load_idm_section(config):
         app.config["service_url"] = ConfigSectionMap('idm', config)['service_url']
         app.config["idm_username"] = ConfigSectionMap('idm', config)['username']
         app.config["idm_password"] = ConfigSectionMap('idm', config)['password']
+        app.config["idm_account_url"] = ConfigSectionMap('idm', config)['account_url']
     except Exception as e:
-        print("Error in IDM config: {}").format(e)
+        print "Error in IDM config: " + str(e)
         sys.exit(-1) 
 
 #Main function

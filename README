@@ -1,0 +1,15 @@
+# README
+
+#Prerequisites for mysql
+sudo apt-get install build-essential python-dev libmysqlclient-dev
+
+#Allow remote mysql connection
+Edit /etc/my.cnf and add:
+'''
+bind-address=0.0.0.0
+'''
+to [mysqld] section.
+Then in mysql console:
+'''
+GRANT ALL ON *.* to root@'%' IDENTIFIED BY '<root_password>';
+'''
