@@ -15,14 +15,15 @@ import datetime
 import math
 import bottle_mysql
 import base64
+import cookielib
+import urllib
 
 #Main bottle app
 app = Bottle()
 
 def is_idm_authorized(auth_url, token_base64):
     try:
-        token_string = token_base64
-        #token_string = base64.b64decode(token_base64)
+        token_string = base64.b64decode(token_base64)
     except Exception as e:
         print("Error in decoding token. Maybe is not in base64 format")
         return False
@@ -40,30 +41,41 @@ def is_idm_authorized(auth_url, token_base64):
         return False
     return True
 
-def get_keypass_token(username, password, url):
-    data = { 'auth': {'identity': { 'methods': ['password'],
-    'password': { 'user': { 'name': username , 'domain': { 'id': 'default' },
-    'password': password } } } }}
+def get_token_auth(url, consumer_key, consumer_secret, username, password, convert_to_64=True):
+    response_dict = {}
+    try:
+        headers = {}
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+        headers["Authorization"] = "Basic " + base64.b64encode(consumer_key + ":" + consumer_secret)
+        data = {"grant_type":"password","username":username,"password":password}
 
-    req = urllib2.Request(url)
-    req.add_header('Content-Type', 'application/json')
-    response = urllib2.urlopen(req, json.dumps(data))
-    accepted_response = [200, 201, 202]
-    if response.getcode() in accepted_response:
-        return response.headers.get('X-Subject-Token')
-    else:
+        cookie_jar = cookielib.LWPCookieJar()
+        cookie = urllib2.HTTPCookieProcessor(cookie_jar)
+        opener = urllib2.build_opener(cookie)
+
+        req = urllib2.Request(url, urllib.urlencode(data), headers)
+        res = opener.open(req)
+        response_dict = json.loads(res.read())
+    except Exception as e:
+        print (str)
         return None
+    if convert_to_64:
+        return base64.b64encode(response_dict["access_token"])
+    else:
+        return response_dict["access_token"]
 
+'''
 def request_to_idm(username, password, keypass_url, url):
-    token = get_keypass_token(username=username, password=password, url=keypass_url)
+    token = get_token_auth(username=username, password=password, url=keypass_url)
     req = urllib2.Request(url)
     if token:
         req.add_header('X-Auth-Token', token)
         response = urllib2.urlopen(req)
         return response
     return None
+'''
 
-def get_token(response):
+def get_token_from_response(response):
     if request.headers.get("Authorization") is not None:
         token = request.headers.get("Authorization").split(" ")[1]
     else:
@@ -95,7 +107,7 @@ def make_request(request_url, request):
     url_request = base_url + request_url + options_from_request(request)
     try:
         req = urllib2.Request(url_request)
-        token_map = get_token(request)
+        token_map = get_token_from_response(request)
         if token_map is not None:
             req.headers["Authorization"] = " ".join(token_map.iteritems().next())
         response = urllib2.urlopen(req)
@@ -220,7 +232,7 @@ def get_host2hosts():
 @app.route('/monitoring/regions/<regionid>/images/', method='GET')
 def get_all_images_by_region(db, regionid="ID of the region"):
     # 1)Check if is authorized
-    if is_idm_authorized( auth_url=app.config.get("idm_account_url"), token_base64=get_token(response).iteritems().next()[1] ):
+    if is_idm_authorized( auth_url=app.config.get("idm_account_url"), token_base64=get_token_from_response(response).iteritems().next()[1] ):
         print "is auth"
     else:
         abort(401)
