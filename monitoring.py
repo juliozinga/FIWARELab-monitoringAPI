@@ -12,6 +12,7 @@ import json
 import urllib2
 import datetime
 import math
+import bottle_mysql
 
 
 #Main bottle app
@@ -337,12 +338,160 @@ def get_region(mongodb, regionid="ID of the region"):
 
     return tmp_res
 
+def get_all_services_by_region_time(db, since, regionid, aggregate):
+    query = 'select * from host_service where region="' + regionid + '" and aggregationType="h"  and UNIX_TIMESTAMP(timestampId) >= UNIX_TIMESTAMP(' + str(since) + ') order by timestampId'
+    out = db.execute(query)
+
+    tmp_res_t = {"_links": {"self": { "href": "" }, "hosts":""},"measures":[{}]}
+    tmpMesArray = []
+    tmp_res_t["_links"]["hosts"] = {"href":"/monitoring/regions/" + regionid + "/services"}
+    tmp_res_t["id"] = regionid
+    tmp_res_t["name"] = regionid
+    
+    base_struct={"timestamp":0, "nova":0, "novaC":0, "neutron":0, "neutronC":0, "cinder":0, "cinderC":0, "glance":0, "glanceC":0, "kp":0, "kpC":0, "tot":0, "totC":0}
+    tmpMes = {}
+    tmpMes["timestamp"] = None
+    tmpMes["novaServiceStatus"] = {"value": "undefined",  "description": "description" }
+    tmpMes["neutronServiceStatus"] = {"value": "undefined",  "description": "description" }
+    tmpMes["cinderServiceStatus"] = {"value": "undefined",  "description": "description" }
+    tmpMes["glanceServiceStatus"] = {"value": "undefined",  "description": "description" }
+    tmpMes["KPServiceStatus"] = {"value": "green",  "description": "description" }
+    tmpMes["FiHealthStatus"] = {"value": "undefined",  "description": "description" }
+    tmpMes["OverallStatus"] = {"value": "undefined",  "description": "description" }
+    arrayBuild = []
+
+    t = {"timestamp":"" , "nova":0, "novaC":0, "neutron":0, "neutronC":0, "cinder":0, "cinderC":0, "glance":0, "glanceC":0, "kp":0, "kpC":0, "sanity":0}
+    for row in db.fetchall():
+        present = 0
+        t["timestamp"] = row["timestampId"] #datetime.datetime.strptime(row["timestampId"], "%Y%m%d %H:%M").date()
+        if row["serviceType"].find("nova") != -1:
+            t["nova"] += row["avg_Uptime"]
+            t["novaC"] += 1
+        elif row["serviceType"].find("quantum") != -1:
+            t["neutron"] += row["avg_Uptime"]
+            t["neutronC"] += 1
+        elif row["serviceType"].find("cinder") != -1:
+            t["cinder"] += row["avg_Uptime"]
+            t["cinderC"] += 1
+        elif row["serviceType"].find("glance") != -1:
+            t["glance"] += row["avg_Uptime"]
+            t["glanceC"] += 1
+        elif row["serviceType"].find("sanity") != -1:
+            t["sanity"]=row["avg_Uptime"]
+
+        arrayBuild.append(t)
+
+    for f in arrayBuild:
+        date = f["timestamp"].strftime("%Y-%m-%dT%H:00:00")
+        tmpMes={}
+        tmpMes["timestamp"] = date
+        tmpMes["novaServiceStatus"] = {"value": "undefined", "value_clean":"undefined", "description": "description" }
+        tmpMes["neutronServiceStatus"] = {"value": "undefined", "value_clean":"undefined", "description": "description" }
+        tmpMes["cinderServiceStatus"] = {"value": "undefined", "value_clean":"undefined", "description": "description" }
+        tmpMes["glanceServiceStatus"] = {"value": "undefined", "value_clean":"undefined", "description": "description" }
+        #hardcoded part. Comment by Attilio
+        tmpMes["KPServiceStatus"] = {"value": "green", "value_clean":"undefined", "description": "description" }
+        tmpMes["FiHealthStatus"] = {"value": "undefined", "value_clean":"undefined", "description": "description" }
+        tmpMes["OverallStatus"] = {"value": "undefined", "value_clean":"undefined", "description": "description" }
+
+        if f["novaC"] == 0:
+            tmpMes["novaServiceStatus"]["value"]=0
+        else:
+            tmpMes["novaServiceStatus"]["value"] = f["nova"]/f["novaC"]
+            if f["nova"]/f["novaC"]>=0.9:
+                tmpMes["novaServiceStatus"]["value"] = "green"
+            elif f["nova"]/f["novaC"]>=0.5 and f["nova"]/f["novaC"]<0.9:
+                tmpMes["novaServiceStatus"]["value"]="yellow"
+            elif f["nova"]/f["novaC"]<0.5:
+                tmpMes["novaServiceStatus"]["value"]="red"
+        if f["novaC"] == 0:
+            tmpMes["novaServiceStatus"]["value"] = "red"
+            tmpMes["novaServiceStatus"]["value_clean"] = 0
+        else:
+            tmpMes["novaServiceStatus"]["value_clean"] = f["nova"]/f["novaC"]
+            if f["nova"]/f["novaC"]>=0.9:
+                tmpMes["novaServiceStatus"]["value"] = "green"
+            elif f["nova"]/f["novaC"]>=0.5 and f["nova"]/f["novaC"]<0.9:
+                tmpMes["novaServiceStatus"]["value"] = "yellow"
+            elif f["nova"]/f["novaC"]<0.5:
+                tmpMes["novaServiceStatus"]["value"]="red"
+
+        lista = ["nova", "neutron", "cinder", "glance"]
+        for ser in lista:
+            if f[ser+"C"] == 0:
+                tmpMes[sr+"ServiceStatus"]["value"] = "red"
+                tmpMes[sr+"ServiceStatus"]["value_clean"] = 0
+            else:
+                tmpMes[ser+"ServiceStatus"]["value_clean"] = f[ser]/f[ser+"C"]
+            if f[ser]/f[ser+"C"] >= 0.9:
+                tmpMes[ser+"ServiceStatus"]["value"] = "green"
+            elif f[ser]/f[ser+"C"] >= 0.5 and f[ser]/f[ser+"C"] < 0.9:
+                tmpMes[ser+"ServiceStatus"]["value"] = "yellow"
+            else:
+                tmpMes[ser+"ServiceStatus"]["value"] = "red"
+
+
+        if f["sanity"] == 0:                                   
+            tmpMes["FiHealthStatus"]["value"] = "red"
+            tmpMes["FiHealthStatus"]["value_clean"] = 0
+        else:
+            tmpMes["FiHealthStatus"]["value_clean"] = f["sanity"]
+            if f["sanity"]>=0.9:
+                tmpMes["FiHealthStatus"]["value"] = "green"
+            elif f["sanity"]>=0.5 and f["sanity"]<0:
+                tmpMes["FiHealthStatus"]["value"]="yellow"
+            elif f["sanity"]<0.5:
+                tmpMes["FiHealthStatus"]["value"]="red"
+
+        denom = f["novaC"]+f["neutronC"]+f["cinderC"]+f["glanceC"]+1
+        nom = f["nova"]+f["neutron"]+f["cinder"]+f["glance"]+1
+        if denom == 0:
+            tmpMes["OverallStatus"]["value"] = "red"
+            tmpMes["OverallStatus"]["value_clean"] = 0
+        else:
+            tmpMes["OverallStatus"]["value_clean"] = nom/denom
+            if nom/denom >= 0.9:
+                tmpMes["OverallStatus"]["value"] = "green"
+            elif nom/denom >=0.5 and nom/denom<0.9:
+                tmpMes["OverallStatus"]["value"] = "yellow"
+            elif nom/denom < 0.5:
+                tmpMes["OverallStatus"]["value"] = "red"
+        tmpMesArray.append(tmpMes)
+
+    now = datetime.now()
+    date = datetime.strptime(since, "%Y-%m-%d %H:%M").date()
+
+    # Dict to map variables based on type of aggregation
+    format_date = { "h" : "%Y-%m-%dT%H:00",
+                    "d" : "%Y-%m-%dT00:00:00",
+                    "m" : "%Y-%m-01T00:00:00"}
+
+    dataClean = date.strftime(format_date[aggregate])
+    dataC = datetime.strptime(dataClean, format_date[aggregate])
+
+    #if aggreagate == h
+    while now > dataC:
+        for pars in tmpMesArray:
+            arrayDate = pars["timestamp"]
+
+
+
+        dataToInsert = dataC.strftime(format_date[aggregate])
+
+
+
+
+    return arrayBuild
+
+
 @app.route('/monitoring/regions/<regionid>/services', method='GET')
 @app.route('/monitoring/regions/<regionid>/services/', method='GET')
-def get_all_services_by_region(mongodb, regionid="ID of the region"):
+def get_all_services_by_region(mongodb, db, regionid="ID of the region"):
     since = None
     if request.query.getone('since') is not None:
         since = request.query.getone('since')
+        services_by_region_time = get_all_services_by_region_time(db=db, since=since, regionid=regionid)
+        return {"asd":services_by_region_time}
 
     tmp_res={"_links": {"self": { "href": "" }},"measures":[{}]}
     novaActive = 0
@@ -670,8 +819,8 @@ def load_api_section(config):
 
 #Return map variables declared in config file in [mongodb] section
 def load_mongo_section(config):
+    mongo_config = {}
     try:
-        mongo_config = {}
         if ConfigSectionMap('mongodb', config)['url']:
             mongo_config['uri'] = "mongodb://" + ConfigSectionMap('mongodb', config)['url']
         if ConfigSectionMap('mongodb', config)['dbname']:
@@ -684,6 +833,21 @@ def load_mongo_section(config):
         print("Error in mongodb: {}").format(e)
         sys.exit(-1)
     return mongo_config
+
+def load_mysql_section(config):
+    mysql_config = {}
+    try:
+        mysql_config["dbuser"] = ConfigSectionMap('mysql', config)['user']
+        mysql_config["dbpass"] = ConfigSectionMap('mysql', config)['password']
+        mysql_config["dbname"] = ConfigSectionMap('mysql', config)['dbname']
+        mysql_config["dbhost"] = ConfigSectionMap('mysql', config)['url']
+        mysql_config["dbport"] = int(ConfigSectionMap('mysql', config)['port'])
+    except Exception as e:
+        print("Error in mongodb: {}").format(e)
+        sys.exit(-1)
+    return mysql_config
+
+    
 
 #Load variables declared in config file in [idm] section and load it to Bottle app.
 #These variables can be getted from route function using app.config.get('variable')
@@ -715,10 +879,12 @@ def main():
 
     #Load from Config file
     listen_url, listen_port = load_api_section(Config)
-    plugin = MongoPlugin(**load_mongo_section(Config))
+    mongo_plugin = MongoPlugin(**load_mongo_section(Config))
+    mysql_plugin = bottle_mysql.Plugin(**load_mysql_section(Config))
     load_idm_section(Config) 
 
-    app.install(plugin)
+    app.install(mongo_plugin)
+    app.install(mysql_plugin)
 
     #App runs in infinite loop
     run(app, host=listen_url, port=listen_port, debug=True)
