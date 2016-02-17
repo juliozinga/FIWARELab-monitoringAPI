@@ -34,8 +34,8 @@ def is_idm_authorized(auth_url, token_base64):
         headers['user-group'] = 'none'
         req = urllib2.Request(url_request)
         req.headers = headers
-        response = urllib2.urlopen(req)
-        UserJson = response.read()
+        response_idm = urllib2.urlopen(req)
+        UserJson = response_idm.read()
     except Exception as e:
         print "Error in authentication: " + str(e)
         return False
@@ -95,7 +95,7 @@ def error404(error):
 @app.error(401)
 def error401(error):
     response.content_type = 'application/json'
-    return json.dumps('UNAUTHORIZED')
+    return json.loads({"Error" : "UNAUTHORIZED"})
 
 '''
 Make the request to old monitoring api
@@ -110,12 +110,12 @@ def make_request(request_url, request):
         token_map = get_token_from_response(request)
         if token_map is not None:
             req.headers["Authorization"] = " ".join(token_map.iteritems().next())
-        response = urllib2.urlopen(req)
+        response_old_monitoring = urllib2.urlopen(req)
     except urllib2.HTTPError as e:
-        return 'UNAUTHORIZED'
+        return {"Error" : "UNAUTHORIZED"}
     except Exception as e:
         return {}
-    return response.read()
+    return json.loads(response_old_monitoring.read())
 
 '''
 Given an API request return a map with the option after '?'
@@ -230,26 +230,77 @@ def get_host2hosts():
 
 @app.route('/monitoring/regions/<regionid>/images', method='GET')
 @app.route('/monitoring/regions/<regionid>/images/', method='GET')
-def get_all_images_by_region(db, regionid="ID of the region"):
-    # 1)Check if is authorized
+def get_all_images_by_region(mongodb, regionid="ID of the region"):
+    # if token is authorized:
+    #   get data from mongodbdatabase
+    # else:
+    #   abort with error 401 = not authorized
+    # return data
     if is_idm_authorized( auth_url=app.config.get("idm_account_url"), token_base64=get_token_from_response(response).iteritems().next()[1] ):
-        print "is auth"
+        images = get_all_images_from_mongo(mongodb=mongodb)
     else:
         abort(401)
-    # 2)Get data from mongodb
-    # 3)Return data
-    return False#return {'To be implemented'}
+    return json.dumps(images) #return {'To be implemented'}
 
 @app.route('/monitoring/regions/<regionid>/images/<imageid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/images/<imageid>/', method='GET')
 def get_all_images_by_region(mongodb, regionid="ID of the region", imageid="Image id"):
-    # 1)Check if is authorized
-    # 2)Get data from mongodb
-    # 3)Return data
-    return json.dumps("to be implemented here")
+    # if token is authorized:
+    #   get data from mongodb
+    # else:
+    #   abort with error 401 = not authorized
+    # return data
+    if is_idm_authorized( auth_url=app.config.get("idm_account_url"), token_base64=get_token_from_response(response).iteritems().next()[1] ):
+        image = get_image_from_mongo(mongodb=mongodb, imageid=imageid, regionid=regionid)
+    else:
+        abort(401)
+    return json.dumps(image)
 
 # /monitoring/host2hosts/source;dest?since=since
 # /monitoring/host2hosts/source/dest?since=since
+
+'''
+Base structure to use in the list request
+'''
+base_dict_list = {
+        "_links": {
+            "self": {
+                "href": ""
+            }
+        },
+        "id": ""
+    }
+
+'''
+mongodb is the local mongodb bottle plugin
+filter_region should be the region name, used to filter the images.
+If no filter_region append all region... 
+'''
+def get_all_images_from_mongo(mongodb, filter_region=None):
+    result = mongodb[app.config.get("collectionname")].find({"_id.type":"image"})
+    result_dict = {"image" : []}
+    for image in result:
+        if filter_region is not None:
+            if image["_id"]["id"].find(filter_region) != -1:
+                base_dict_list["_links"]["self"]["href"] = "/monitoring/regions/" + filter_region + "/images/" + image["_id"]["id"]
+                base_dict_list["id"] = image["_id"]["id"]
+                result_dict["image"].append(base_dict_list)
+        else:
+            #This else will be removed. Used only for test as long as we have not a new mongodb in Spain and must use fake mongo
+            base_dict_list["_links"]["self"]["href"] = "/monitoring/regions/--NOFILTER--/images/" + image["_id"]["id"]
+            base_dict_list["id"] = image["_id"]["id"]
+            result_dict["image"].append(base_dict_list)
+    return result_dict
+
+def get_image_from_mongo(mongodb, imageid, regionid):
+#services = mongodb[app.config.get("collectionname")].find({"$and": [{"_id.type": "host_service" }, {"_id.id": {"$regex" : regionid+':'}}] })
+    result = mongodb[app.config.get("collectionname")].find({"$and": [{"_id.type": "image" }, {"_id.id": {"$regex" : imageid}}] })
+    result_dict = {"details":[]}
+    for image in result:
+        result_dict["details"].append(image)
+    return result_dict
+
+    #result = mongodb[app.config.get("collectionname")].find({"_id.type":"image"})
 
 #Argument management
 def arg_parser():
