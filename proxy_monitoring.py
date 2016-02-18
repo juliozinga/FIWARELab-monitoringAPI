@@ -18,14 +18,24 @@ import base64
 import cookielib
 import urllib
 
-#Main bottle app
+###Main bottle app
 app = Bottle()
+#####
 
-def is_idm_authorized(auth_url, token_base64):
+#Return if the token is authorized with auth_url
+def is_idm_authorized(auth_url, token_map):
     try:
-        token_string = base64.b64decode(token_base64)
+        if "X-Subject-Token" in token_map:
+            token_string = token_map["X-Subject-Token"]
+        elif "Bearer" in token_map:
+            token_string = base64.b64decode(token_map["Bearer"])
+        else:
+            raise Exception('Header not known') 
+        #.iteritems().next()[1]
+        #token_string = base64.b64decode(token_base64)
+        #token_string = token_base64
     except Exception as e:
-        print("Error in decoding token. Maybe is not in base64 format")
+        print "Error in decoding token: " + str(e)
         return False
     try:
         url_request = auth_url + "/user/?access_token=" + token_string
@@ -41,6 +51,7 @@ def is_idm_authorized(auth_url, token_base64):
         return False
     return True
 
+#Get token from IDM
 def get_token_auth(url, consumer_key, consumer_secret, username, password, convert_to_64=True):
     response_dict = {}
     try:
@@ -69,7 +80,7 @@ def request_to_idm(username, password, keypass_url, url):
     token = get_token_auth(username=username, password=password, url=keypass_url)
     req = urllib2.Request(url)
     if token:
-        req.add_header('X-Auth-Token', token)
+        req.add_header('X-Subject-Token', token)
         response = urllib2.urlopen(req)
         return response
     return None
@@ -81,8 +92,8 @@ def get_token_from_response(response):
     else:
         return None
     auth_map = {}
-    if request.headers.get("Authorization").find("X-Auth-Token") != -1:
-        auth_map["X-Auth-Token"] = token
+    if request.headers.get("Authorization").find("X-Subject-Token") != -1:
+        auth_map["X-Subject-Token"] = token
     else:
         auth_map["Bearer"] = token
     return auth_map
@@ -236,7 +247,7 @@ def get_all_images_by_region(mongodb, regionid="ID of the region"):
     # else:
     #   abort with error 401 = not authorized
     # return data
-    if is_idm_authorized( auth_url=app.config.get("idm_account_url"), token_base64=get_token_from_response(response).iteritems().next()[1] ):
+    if is_idm_authorized( auth_url=app.config.get("idm_account_url"), token_map=get_token_from_response(response) ):
         images = get_all_images_from_mongo(mongodb=mongodb)
     else:
         abort(401)
@@ -250,7 +261,7 @@ def get_all_images_by_region(mongodb, regionid="ID of the region", imageid="Imag
     # else:
     #   abort with error 401 = not authorized
     # return data
-    if is_idm_authorized( auth_url=app.config.get("idm_account_url"), token_base64=get_token_from_response(response).iteritems().next()[1] ):
+    if is_idm_authorized( auth_url=app.config.get("idm_account_url"), token_map=get_token_from_response(response) ):
         image = get_image_from_mongo(mongodb=mongodb, imageid=imageid, regionid=regionid)
     else:
         abort(401)
@@ -293,14 +304,11 @@ def get_all_images_from_mongo(mongodb, filter_region=None):
     return result_dict
 
 def get_image_from_mongo(mongodb, imageid, regionid):
-#services = mongodb[app.config.get("collectionname")].find({"$and": [{"_id.type": "host_service" }, {"_id.id": {"$regex" : regionid+':'}}] })
     result = mongodb[app.config.get("collectionname")].find({"$and": [{"_id.type": "image" }, {"_id.id": {"$regex" : imageid}}] })
     result_dict = {"details":[]}
     for image in result:
         result_dict["details"].append(image)
     return result_dict
-
-    #result = mongodb[app.config.get("collectionname")].find({"_id.type":"image"})
 
 #Argument management
 def arg_parser():
@@ -323,6 +331,7 @@ def ConfigSectionMap(section, Config):
     return dict1
 
 #Return variables declared in config file in [api] section
+#Return listen_url and listen_port used to run bottle app
 def load_api_section(config):
     try:
         listen_url = ConfigSectionMap('api', config)['listen_url']
@@ -332,7 +341,8 @@ def load_api_section(config):
         sys.exit(-1)
     return listen_url, listen_port
 
-#Return map variables declared in config file in [mongodb] section
+#Load mongo configuration from config file
+#Return a dict with all parameters that can be given to mongo plugin instance
 def load_mongo_section(config):
     mongo_config = {}
     try:
@@ -350,6 +360,7 @@ def load_mongo_section(config):
     return mongo_config
 
 #Load mysql configuration from config file
+#Return a dict with all parameters that can be given to bottle_mysql.Plugin instance
 def load_mysql_section(config):
     mysql_config = {}
     try:
@@ -363,7 +374,8 @@ def load_mysql_section(config):
         sys.exit(-1)
     return mysql_config
 
-#Load variable from config file to bottle app config
+#Load variables declared in config file in [oldmonitoring] section and load it to Bottle app.
+#These variables can be getted from route function using app.config.get('variable')
 def load_oldmonitoring_section(config):
     try:
         app.config["old_monitoring_url"] = ConfigSectionMap('oldmonitoring', config)['url']
@@ -388,6 +400,7 @@ def load_idm_section(config):
 
 #Main function
 def main():
+    #Loads and manages the input arguments
     args = arg_parser()
     if args.config_file is not None:
         config_file = args.config_file
@@ -402,7 +415,7 @@ def main():
         print("Problem with config file: {}").format(e)
         sys.exit(-1)
 
-    #Load from Config file
+    #Load settings from Config file
     listen_url, listen_port = load_api_section(Config)
     mongo_plugin = MongoPlugin(**load_mongo_section(Config))
     mysql_plugin = bottle_mysql.Plugin(**load_mysql_section(Config))
