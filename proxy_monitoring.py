@@ -31,9 +31,6 @@ def is_idm_authorized(auth_url, token_map):
             token_string = base64.b64decode(token_map["Bearer"])
         else:
             raise Exception('Header not known') 
-        #.iteritems().next()[1]
-        #token_string = base64.b64decode(token_base64)
-        #token_string = token_base64
     except Exception as e:
         print "Error in decoding token: " + str(e)
         return False
@@ -106,7 +103,7 @@ def error404(error):
 @app.error(401)
 def error401(error):
     response.content_type = 'application/json'
-    return json.loads({"Error" : "UNAUTHORIZED"})
+    return {"Error" : "UNAUTHORIZED"}
 
 '''
 Make the request to old monitoring api
