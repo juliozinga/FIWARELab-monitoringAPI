@@ -1,10 +1,9 @@
 /***********************************/
-// Copyright 2015 Create-net.org   //  
+// Copyright 2014 Create-net.org   //  
 // All Rights Reserved.            //
-// date :22-09-2015                //
+// date :04-06-2014                //
 // author: attybro                 //
-// versiom: 2.1.0                  //
-// monitoringAPI for FIWARELab Prj //
+// monitoringAPI for XiFi project  //
 /***********************************/
 
 fs   = require('fs');
@@ -96,7 +95,13 @@ localEnum = new Enum({
 'NOT_FOUND':'404',
 'SERVER_ERROR': '500',
 'NOT_IMPLEMENTED': '501',
-'TRUSTED_APP':['aaa','bbb']
+'ADMIN':191,
+'IO':192,
+'FED_MAN':193,
+'DEV':194,
+'SLA':1274,
+'TRUSTED_APP':['aaa', 'bbb'],
+'TrentoNode':350
 });
 
 connection.connect(function(err) {
@@ -218,6 +223,8 @@ optionsIDM = {
                    regionId=parts[2];
                    hostId=parts[4];
                  }
+                 else
+                   caseId=localEnum.BAD_REQUEST
               }
             }
 
@@ -475,7 +482,7 @@ function getRegionList(res, statusType ,authToken){
       now=(Math.floor(Date.now() / 1000));
       for (i=0; i<regions.length;i++){
 	//if(now-regions[i].modDate<cfgObj.regionTTL){
-        if(regions[i]._id.id!="Berlin" && regions[i]._id.id!="Stockholm2" && regions[i]._id.id!="SaoPaulo" && regions[i]._id.id!="Mexico" ){
+        if(regions[i]._id.id!="Berlin" && regions[i]._id.id!="Berlin2" && regions[i]._id.id!="Waterford" && regions[i]._id.id!="Stockholm" && regions[i]._id.id!="Stockholm2"  && regions[i]._id.id!="Mexico" ){
           href_txt= "/monitoring/regions/"+regions[i]._id.id
           tmp_reg.push({"_links" : {"self": { "href": href_txt}}, "id": regions[i]._id.id})
           for (j=0; j<regions[i].attrs.length; j++){
@@ -520,6 +527,9 @@ function getRegionList(res, statusType ,authToken){
           continue;
         }
       }//end region loop
+      OAuth2 = oAuth.OAuth2;
+      //ConsumerKey = '608';
+      //ConsumerSecret = '';
 try{
 
   new Date().getTime();
@@ -868,7 +878,7 @@ function getRegion(res, statusType, authToken, regionId){
 
 function getRegionTime(res, statusType, authToken, regionId, sinceValue){
   /*HADOOP needed*/
-  var tmp_res={"_links": {"self": { "href": "" }},"measures":[{}]};
+  tmp_res={"_links": {"self": { "href": "" }},"measures":[{}]};
   tmp_res._links.self.href="/monitoring/regions/"+regionId;
   Entity.findOne({$and: [{"_id.type": "region" }, {"_id.id": regionId}] } ,function (err, region){
   if (err){
@@ -2160,7 +2170,17 @@ function getH2HTime(res, statusType, authToken, h2h, sinceValue){
 function getServiceRegion(res, statusType, authToken, regionId){
   Entity.findOne({$and: [{"_id.type": "region" }, {"_id.id": regionId}] },function (err1, regionInfo) { 
   if (regionInfo && !(err1)){
-  
+  time2print="0000-00-00T00:00";
+  if (regionInfo.modDate){
+   time2=new Date(regionInfo.modDate*1000)
+
+   var yyyy = time2.getFullYear().toString();
+   var mm  = (time2.getMonth()+1).toString(); // getMonth() is zero-based
+   var dd  = time2.getDate().toString();
+   var hh  = time2.getHours().toString();
+   var m_m = time2.getMinutes().toString();
+   time2print=yyyy +"-"+ (mm[1]?mm:"0"+mm[0]) +"-"+(dd[1]?dd:"0"+dd[0])+"T"+(hh[1]?hh:"0"+hh[0])+":"+(m_m[1]?m_m:"0"+m_m[0])+":00";
+   }
   //console.log(regionInfo);
   //Entity.find({$and: [{"_id.type": "host_service" }, {"_id.id": '/'+regionId+':/'}] } ,function (err, services) {
   Entity.find({$and: [{"_id.type": "host_service" }, {"_id.id": {$regex : regionId+':'}}] } ,function (err, services) {
@@ -2183,7 +2203,7 @@ function getServiceRegion(res, statusType, authToken, regionId){
          if (regionInfo.attrs[l].name.indexOf("sanity") != -1){
            if (regionInfo.attrs[l].name == "sanity_check_timestamp"){
              sanTime=(Math.floor(regionInfo.attrs[l].value/ 1000));
-           }else{
+           }else if (regionInfo.attrs[l].name == "sanity_status"){
              sanActive++
              tmp_val=0
              if (regionInfo.attrs[l].value=="OK")tmp_val=1
@@ -2263,31 +2283,44 @@ function getServiceRegion(res, statusType, authToken, regionId){
       serv="undefined";
       kp="undefined";
       san="undefined"
+     
+      nova_c=0;
+      cinder_c=0;
+      quantum_c=0;
+      glance_c=0;
+      kp_c=0;
+      serv_c=0;
+      san_c=0;
       //console.log(sanTot)
       //console.log(sanActive)
       if (qDhcpStatus==1)quantumActive++;
       if (qL3Status==1)quantumActive++;
       if(novaActive && (novaTot && novaTot>0)){
+      nova_c=novaActive/novaTot;
       if(novaActive/novaTot>=0.9)nova="green"
       else if(novaActive/novaTot<0.99 && novaActive/novaTot>=0.5)nova="yellow"
       else if(novaActive/novaTot<0.5  && novaActive/novaTot>0) nova="red"
       } 
       if(cinderActive && (cinderTot && cinderTot>0)){
+      cinder_c=cinderActive/cinderTot;
       if(cinderActive/cinderTot>=0.99)cinder="green"
       else if(cinderActive/cinderTot<0.99 && cinderActive/cinderTot>=0.5)cinder="yellow"
       else if(cinderActive/cinderTot<0.5  && cinderActive/cinderTot>0) cinder="red"
       }
       if(quantumActive && (quantumTot&& quantumTot>0)){
+      quantum_c=quantumActive/quantumTot;
       if(quantumActive/quantumTot>=0.9)quantum="green"
       else if(quantumActive/quantumTot<0.9 && quantumActive/quantumTot>=0.2)quantum="yellow"
       else if(quantumActive/quantumTot<0.2  && quantumActive/quantumTot>0) quantum="red"
       }
       if(glanceActive && (glanceTot && glanceTot>0)){
+      glance_c=glanceActive/glanceTot;
       if(glanceActive/glanceTot>=0.99)glance="green"
       else if(glanceActive/glanceTot<0.99 && glanceActive/glanceTot>=0.5)glance="yellow"
       else if (glanceActive/glanceTot<0.5 && glanceActive/glanceTot>0)glance="red"
       }
       if(kpActive && (kpTot && kpTot>0)){
+      kp_c=kpActive/kpTot;
       if(kpActive/kpTot>=0.99)kp="green"
       else if(kpActive/kpTot<0.99 && kpActive/kpTot>=0.5)kp="yellow"
       else if (kpActive/kpTot<0.5 && kpActive/kpTot>0)kp="red"
@@ -2297,6 +2330,7 @@ function getServiceRegion(res, statusType, authToken, regionId){
       if (/*sanTime-service.modDate<cfgObj.serviceTTL &&*/ (sanActive==0 || sanTot==0))
         san="red";
       else if (sanActive && sanTot  /*&& sanTime-service.modDate<cfgObj.serviceTTL*/ ){
+        san_c=sanTot/sanActive;
         if      (sanTot/sanActive>=0.9){san="green";}
         else if (sanTot/sanActive<0.9 && sanTot/sanActive>=0.5){san="yellow";}
         else if (sanTot/sanActive<0.5){san="red";}
@@ -2336,6 +2370,7 @@ function getServiceRegion(res, statusType, authToken, regionId){
  
       if(cnt==0)serv="undefined"
       else{
+      serv_c=tot/(cnt*2);
       if (tot/(cnt*2)>=0.99)serv="green"
       else if (tot/(cnt*2)>=0.5 && tot/(cnt*2)<0.99)serv="yellow"
       else if(tot/(cnt*2)>=0 && tot/(cnt*2)<0.5)serv="red"
@@ -2345,14 +2380,14 @@ function getServiceRegion(res, statusType, authToken, regionId){
        *
        */
       kp="green"
-      var tmp_measures=[{"timestamp" : "2013-12-20 12.00",
-                    "novaServiceStatus"   : {"value": nova,   "description": "desc"},
-                    "neutronServiceStatus": {"value": quantum,"description": "desc"},    
-                    "cinderServiceStatus" : {"value": cinder, "description": "desc"},    
-                    "glanceServiceStatus" : {"value": glance, "description": "desc"},    
-                    "KPServiceStatus"     : {"value": kp,     "description": "desc"},       
-                    "OverallStatus"       : {"value": serv,   "description": "desc"},
-                    "FiHealthStatus"      : {"value": san,    "description": "desc"} }];
+      var tmp_measures=[{"timestamp" : time2print,
+                    "novaServiceStatus"   : {"value": nova,  "value_clean": nova_c, "description": "desc"},
+                    "neutronServiceStatus": {"value": quantum,"value_clean": quantum_c, "description": "desc"},    
+                    "cinderServiceStatus" : {"value": cinder,"value_clean": cinder_c, "description": "desc"},    
+                    "glanceServiceStatus" : {"value": glance,"value_clean": glance_c, "description": "desc"},    
+                    "KPServiceStatus"     : {"value": kp,  "value_clean": kp_c,   "description": "desc"},       
+                    "OverallStatus"       : {"value": serv, "value_clean": serv_c,  "description": "desc"},
+                    "FiHealthStatus"      : {"value": san,  "value_clean": san_c,  "description": "desc"} }];
       tmp_res.measures=(tmp_measures);
       //console.log(tmp_res);
       sendResponse (res, localEnum.OK.value, tmp_res);
@@ -2378,6 +2413,7 @@ function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue, 
     tmp_res_t.name=regionId;
     /*acquire historical data*/
     queryString = 'select * from host_service where region="'+regionId+'" and aggregationType="'+aggregate+'"  and UNIX_TIMESTAMP(timestampId) >= UNIX_TIMESTAMP("'+sinceValue+'") order by timestampId';
+    //queryString = 'select entityId,region, entityType, serviceType, 'm' as aggregationType, timestampId, avg(avg_Uptime) as avg_Uptime from host_service where region="'+regionId+'" and aggregationType="d"  and UNIX_TIMESTAMP(timestampId) >= UNIX_TIMESTAMP("'+sinceValue+'") group by MONTH(timestampId) order by timestampId';
     connection.query(queryString, function(err, rows, fields) {
     if (err){
       sendErrorResponse (res, localEnum.NOT_FOUND.value, localEnum.NOT_FOUND.key)
@@ -2417,7 +2453,8 @@ function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue, 
               arrayBuild[jj].glance+=rows[ii].avg_Uptime;
               arrayBuild[jj].glanceC+=1;
             }
-            if (rows[ii].serviceType.indexOf("sanity") != -1){
+         
+            if (rows[ii].serviceType.indexOf("sanity") != -1 /*&& rows[ii].avg_Uptime */){
               arrayBuild[jj].sanity=rows[ii].avg_Uptime;
             }
              present=1;
@@ -2425,7 +2462,7 @@ function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue, 
           }
         }
         if (present==0){
-          t={timestamp:new Date(rows[ii].timestampId) , nova:0, novaC:0, neutron:0, neutronC:0, cinder:0, cinderC:0, glance:0, glanceC:0, kp:0, kpC:0, sanity:0};
+          t={timestamp:new Date(rows[ii].timestampId) , nova:0, novaC:0, neutron:0, neutronC:0, cinder:0, cinderC:0, glance:0, glanceC:0, kp:0, kpC:0, sanity:null};
           if (rows[ii].serviceType.indexOf("nova") != -1){
             t.nova+=rows[ii].avg_Uptime;
             t.novaC+=1;
@@ -2446,11 +2483,8 @@ function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue, 
             t.sanity=rows[ii].avg_Uptime;
           }
 
-          //console.log(rows[i])
           arrayBuild.push(t);
         } 
-         //console.log(rows[i])
-         //console.log(rows.length
          //lastTimestamp=tmpMes.timestamp 
         //tmpMesArray.push(tmpMes);
       }
@@ -2524,16 +2558,18 @@ function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue, 
           else if (arrayBuild[f].glance/arrayBuild[f].glanceC>=0.5 && arrayBuild[f].glance/arrayBuild[f].glanceC<0.9)    tmpMes.glanceServiceStatus.value="yellow"
           else if (arrayBuild[f].glance/arrayBuild[f].glanceC<0.5)                                                       tmpMes.glanceServiceStatus.value="red"
         }
-        if (arrayBuild[f].sanity==0){                                    
-          tmpMes.FiHealthStatus.value="red"; 
-          tmpMes.FiHealthStatus.value_clean=0;
+
+
+        if (arrayBuild[f].sanity==null){ 
+          tmpMes.FiHealthStatus.value="undefined"
+          tmpMes.FiHealthStatus.value_clean="undefined"
         }
-        if (arrayBuild[f].sanity!=0){
-          tmpMes.FiHealthStatus.value_clean=arrayBuild[f].sanity;
-          if (arrayBuild[f].sanity>=0.9)                                  tmpMes.FiHealthStatus.value="green"
-          else if (arrayBuild[f].sanity>=0.5 && arrayBuild[f].sanity<0.9) tmpMes.FiHealthStatus.value="yellow"
-          else if (arrayBuild[f].sanity<0.5)                              tmpMes.FiHealthStatus.value="red"
+        else{
+          if (arrayBuild[f].sanity>=0.9){                                  tmpMes.FiHealthStatus.value="green";tmpMes.FiHealthStatus.value_clean=arrayBuild[f].sanity;}
+          else if (arrayBuild[f].sanity>=0.5 && arrayBuild[f].sanity<0.9){ tmpMes.FiHealthStatus.value="yellow";tmpMes.FiHealthStatus.value_clean=arrayBuild[f].sanity;}
+          else if (arrayBuild[f].sanity<0.5 && arrayBuild[f].sanity>=0)  { tmpMes.FiHealthStatus.value="red";tmpMes.FiHealthStatus.value_clean=arrayBuild[f].sanity;}
         }
+
         denom=arrayBuild[f].novaC+arrayBuild[f].neutronC+arrayBuild[f].cinderC+arrayBuild[f].glanceC+1;
         nom=arrayBuild[f].nova+arrayBuild[f].neutron+arrayBuild[f].cinder+arrayBuild[f].glance+1;
         if (denom==0){                              
@@ -2643,10 +2679,9 @@ function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue, 
 
     }
     else if (aggregate=="m"){
-      //console.log ("month...........")
       while (now>dataC){
         equal="NO"
-        for (var pars in tmpMesArray){
+        for (pars in tmpMesArray){
           arrayDate= new Date(tmpMesArray[pars].timestamp);
           equal="NO"
           if (arrayDate.getFullYear()==dataC.getFullYear() && arrayDate.getMonth()==dataC.getMonth()){
@@ -2656,7 +2691,9 @@ function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue, 
           }
         }
         //if (equal=="NO"){
-        if (equal=="NO" && (  dataC.getFullYear()<=now.getFullYear() &&  dataC.getMonth()<now.getMonth() ) )
+        if (equal=="NO" && (  dataC.getFullYear()!=now.getFullYear() &&  dataC.getMonth()<now.getMonth() ) )
+{
+          
           var yyyy = dataC.getFullYear().toString();
           var mm = (dataC.getMonth()+1).toString(); // getMonth() is zero-based
           var dd  = dataC.getDate().toString();
@@ -2672,6 +2709,7 @@ function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue, 
           tmpMes.FiHealthStatus       = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
           tmpMes.OverallStatus        = {"value": "undefined",  "value_clean":"undefined", "description": "description" };
           tmpMesArray.push(tmpMes)
+}
         }
         dataC.setMonth(dataC.getMonth() + 1)
       }
