@@ -174,9 +174,8 @@ optionsIDM = {
         var nesId='';
         var sinceValue=0;
         var aggregate='h';
-
-        if(req.headers.authorization)
-          authToken=req.headers.authorization;
+        
+        authToken=getTokenHeader(req.headers);
         var url_parts=[];
         if (req.url){
           caseId=localEnum.BAD_REQUEST;
@@ -1012,9 +1011,7 @@ function getRegionTime(res, statusType, authToken, regionId, sinceValue){
 function getHostList(res, statusType, authToken, regionId){
   if (authToken){
    app_id=0;
-   var part=(authToken.substring(7))
-   var originaldata = new Buffer(part, 'base64');
-   var access_token=originaldata.toString('utf8')
+   var access_token = authToken;
    var options={
      hostname:IDMurl,
      port:'443',
@@ -1190,9 +1187,7 @@ function getHost(res, statusType, authToken, regionId, hostId){
   //console.log(authToken)
   if (authToken){
    app_id=0;
-   var part=(authToken.substring(7))
-   var originaldata = new Buffer(part, 'base64');
-   var access_token=originaldata.toString('utf8')
+   var access_token = authToken;
    var options={
      hostname:IDMurl,
      port:'443',
@@ -1341,9 +1336,7 @@ function getHost(res, statusType, authToken, regionId, hostId){
 function getHostTime(res, statusType, authToken, regionId, hostId, sinceValue){
   if (authToken){
    app_id=0;
-   var part=(authToken.substring(7))
-   var originaldata = new Buffer(part, 'base64');
-   var access_token=originaldata.toString('utf8')
+   var access_token = authToken;
    var options={
      hostname:IDMurl,
      port:'443',
@@ -1470,9 +1463,7 @@ function getHostTime(res, statusType, authToken, regionId, hostId, sinceValue){
 function getVmList(res, statusType, authToken, regionId){
   app_id=0;
   if (authToken){
-   var part=(authToken.substring(7))
-   var originaldata = new Buffer(part, 'base64');
-   var access_token=originaldata.toString('utf8');
+   var access_token = authToken;;
    //console.log(authToken)
    //console.log(part)
    //console.log(originaldata)
@@ -2855,3 +2846,29 @@ else
   return false;
 }
 
+function extractBearerAccessToken(authHeaderValue){
+
+  var i = authHeaderValue.indexOf(" ");
+  var authType = authHeaderValue.substring(0,i);
+  var authToken = authHeaderValue.substring(i+1);
+
+  if (authType == "Bearer") {
+    var tmpToken = new Buffer(authToken, 'base64');
+    var authToken=tmpToken.toString('utf8')
+  }
+  else {
+    console.log('WARNING: Authentication type not recognized');
+  }
+  return authToken;
+}
+
+function getTokenHeader (headers) {
+  var authToken = '';  
+  if (headers['x-auth-token']) {
+    authToken = headers['x-auth-token'];
+  }
+  else if (headers['authorization']){
+    authToken = extractBearerAccessToken(headers['authorization']);
+  }
+  return authToken;
+}
