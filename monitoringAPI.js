@@ -104,6 +104,11 @@ localEnum = new Enum({
 'TrentoNode':350
 });
 
+// Load trusted app from configuration file
+if (confObj.trusted_app != null) {
+  localEnum.TRUSTED_APP.value = confObj.trusted_app;
+}
+
 connection.connect(function(err) {
   config_file = check_file(process.argv)
   main(config_file);
@@ -143,7 +148,7 @@ fs.readFile(config_file, 'utf8', function (err,data) {
   else if(data && IsJsonString(data)){
     
     cfgObj = JSON.parse(data);
-    localEnum['TRUSTED_APP'] = cfgObj.trusted_app
+    //localEnum.TRUSTED_APP.value = cfgObj.trusted_app
     if(cfgObj && cfgObj.KPurl && cfgObj.KPusr  && cfgObj.KPpwd   && cfgObj.IDMurl && cfgObj.apiIPaddress && cfgObj.apiPort && cfgObj.mongoIP && cfgObj.mongoDBname && cfgObj.regionTTL && cfgObj.hostTTL && cfgObj.vmTTL && cfgObj.serviceTTL && cfgObj.h2hTTL){
       //enable server
 optionsKP = {
