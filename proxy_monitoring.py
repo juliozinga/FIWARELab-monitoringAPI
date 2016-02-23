@@ -22,13 +22,15 @@ import urllib
 app = Bottle()
 #####
 
+HEADER_AUTH = "X-Auth-Token"
+
 #Return if the token is authorized with auth_url
 def is_idm_authorized(auth_url, token_map):
     try:
-        if "X-Subject-Token" in token_map:
-            token_string = token_map["X-Subject-Token"]
-        elif "Bearer" in token_map:
-            token_string = base64.b64decode(token_map["Bearer"])
+        if HEADER_AUTH in token_map:
+            token_string = token_map[HEADER_AUTH]
+        elif "Authorization" in token_map:
+            token_string = base64.b64decode(token_map["Authorization"].split(" ")[1])
         else:
             raise Exception('Header not known') 
     except Exception as e:
@@ -84,15 +86,15 @@ def request_to_idm(username, password, keypass_url, url):
 '''
 
 def get_token_from_response(response):
+    auth_map = {}
     if request.headers.get("Authorization") is not None:
         token = request.headers.get("Authorization").split(" ")[1]
+        auth_map["Authorization"] = "Bearer " + token
+    elif request.headers.get(HEADER_AUTH) is not None:
+        token = request.headers.get(HEADER_AUTH)
+        auth_map[HEADER_AUTH] = token
     else:
-        return None
-    auth_map = {}
-    if request.headers.get("Authorization").find("X-Subject-Token") != -1:
-        auth_map["X-Subject-Token"] = token
-    else:
-        auth_map["Bearer"] = token
+        abort(404, "Error in token format")
     return auth_map
 
 @app.error(404)
@@ -117,7 +119,8 @@ def make_request(request_url, request):
         req = urllib2.Request(url_request)
         token_map = get_token_from_response(request)
         if token_map is not None:
-            req.headers["Authorization"] = " ".join(token_map.iteritems().next())
+            req.headers[ token_map.iteritems().next()[0] ] = token_map.iteritems().next()[1]
+            print req.headers
         response_old_monitoring = urllib2.urlopen(req)
     except urllib2.HTTPError as e:
         return {"Error" : "UNAUTHORIZED"}
