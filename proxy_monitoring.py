@@ -396,7 +396,25 @@ def load_idm_section(config):
         app.config["idm_account_url"] = ConfigSectionMap('idm', config)['account_url']
     except Exception as e:
         print "Error in IDM config: " + str(e)
-        sys.exit(-1) 
+        sys.exit(-1)
+
+
+#Function to convert a string to boolean value.
+#Used for load_regionNew
+def str2bool(v):
+  return v.lower() in ("yes", "true", "t", "1")
+
+#Load the new map regionNew inside app.
+#This map is used to check if the region belongs to new or old monitoring
+#In the future this function can be removed
+def load_regionNew(Config):
+    try:
+        regionNew = dict(Config._sections['regionNew'])
+        app.config['regionNew'] = regionNew
+        del regionNew["__name__"] # In the map there are also the __name__ of the section
+    except Exception as e:
+        print "Error in regionNew config: " + str(e)
+        sys.exit(-1)
 
 #Main function
 def main():
@@ -416,11 +434,13 @@ def main():
         sys.exit(-1)
 
     #Load settings from Config file
+    load_regionNew(Config) #Load region_map
     listen_url, listen_port = load_api_section(Config)
     mongo_plugin = MongoPlugin(**load_mongo_section(Config))
     mysql_plugin = bottle_mysql.Plugin(**load_mysql_section(Config))
     load_idm_section(Config)
     load_oldmonitoring_section(Config)
+
 
     app.install(mongo_plugin)
     app.install(mysql_plugin)
