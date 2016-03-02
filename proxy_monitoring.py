@@ -106,25 +106,38 @@ def error404(error):
 def error401(error):
     response.content_type = 'application/json'
     return {"Error" : "UNAUTHORIZED"}
-
+'''
+Return the url and port of monitoring to which forward the request.
+If the regionId has old monitoring return the old monitoring url,
+If the region has new monitoring return the new one
+'''
+def select_monitoring_to_forward(regionid):
+    try:
+        if str2bool( app.config["regionNew"][regionid.lower()] ):
+            return app.config["newmonitoring"]["url"], app.config["newmonitoring"]["port"]
+    except Exception:
+        pass
+    return  app.config["oldmonitoring"]["url"], app.config["oldmonitoring"]["port"]
+'regionNew'
 '''
 Make the request to old monitoring api
 args:   request in the form: "/" or "/monitoring/regions" etc.
 return empty array if error
 '''
-def make_request(request_url, request):
-    base_url = "http://" + app.config.get("old_monitoring_url") + ":" + app.config.get("old_monitoring_port")
+def make_request(request_url, request, regionid=None):
+    monitoring_url, monitoring_port = select_monitoring_to_forward(regionid)
+    base_url = "http://" + monitoring_url + ":" + monitoring_port
     url_request = base_url + request_url + options_from_request(request)
     try:
         req = urllib2.Request(url_request)
         token_map = get_token_from_response(request)
         if token_map is not None:
             req.headers[ token_map.iteritems().next()[0] ] = token_map.iteritems().next()[1]
-            print req.headers
         response_old_monitoring = urllib2.urlopen(req)
     except urllib2.HTTPError as e:
         return {"Error" : "UNAUTHORIZED"}
     except Exception as e:
+        print "Error in make_request: " + str(e)
         return {}
     return json.loads(response_old_monitoring.read())
 
@@ -191,7 +204,7 @@ def get_host(regionid="ID of the region", hostid="ID of the host"):
 @app.route('/monitoring/regions/<regionid>/vms/', method='GET')
 def get_all_vms(regionid="ID of the region"):
     return json.dumps(make_request(
-        "/monitoring/regions/" + regionid + "/vms/" , request=request))
+        "/monitoring/regions/" + regionid + "/vms/" , request=request, regionid = regionid))
 
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/', method='GET')
@@ -242,12 +255,7 @@ def get_host2hosts():
 @app.route('/monitoring/regions/<regionid>/images', method='GET')
 @app.route('/monitoring/regions/<regionid>/images/', method='GET')
 def get_all_images_by_region(mongodb, regionid="ID of the region"):
-    # if token is authorized:
-    #   get data from mongodbdatabase
-    # else:
-    #   abort with error 401 = not authorized
-    # return data
-    if is_idm_authorized( auth_url=app.config.get("idm_account_url"), token_map=get_token_from_response(response) ):
+    if is_idm_authorized( auth_url=app.config["idm"]["account_url"], token_map=get_token_from_response(response) ):
         images = get_all_images_from_mongo(mongodb=mongodb)
     else:
         abort(401)
@@ -255,13 +263,8 @@ def get_all_images_by_region(mongodb, regionid="ID of the region"):
 
 @app.route('/monitoring/regions/<regionid>/images/<imageid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/images/<imageid>/', method='GET')
-def get_all_images_by_region(mongodb, regionid="ID of the region", imageid="Image id"):
-    # if token is authorized:
-    #   get data from mongodb
-    # else:
-    #   abort with error 401 = not authorized
-    # return data
-    if is_idm_authorized( auth_url=app.config.get("idm_account_url"), token_map=get_token_from_response(response) ):
+def get_image_by_region(mongodb, regionid="ID of the region", imageid="Image id"):
+    if is_idm_authorized( auth_url=app.config["idm"]["account_url"], token_map=get_token_from_response(response) ):
         image = get_image_from_mongo(mongodb=mongodb, imageid=imageid, regionid=regionid)
     else:
         abort(401)
@@ -288,7 +291,7 @@ filter_region should be the region name, used to filter the images.
 If no filter_region append all region... 
 '''
 def get_all_images_from_mongo(mongodb, filter_region=None):
-    result = mongodb[app.config.get("collectionname")].find({"_id.type":"image"})
+    result = mongodb[app.config["mongodb"]["collectionname"]].find({"_id.type":"image"})
     result_dict = {"image" : []}
     for image in result:
         if filter_region is not None:
@@ -304,7 +307,7 @@ def get_all_images_from_mongo(mongodb, filter_region=None):
     return result_dict
 
 def get_image_from_mongo(mongodb, imageid, regionid):
-    result = mongodb[app.config.get("collectionname")].find({"$and": [{"_id.type": "image" }, {"_id.id": {"$regex" : imageid}}] })
+    result = mongodb[app.config["mongodb"]["collectionname"]].find({"$and": [{"_id.type": "image" }, {"_id.id": {"$regex" : imageid}}] })
     result_dict = {"details":[]}
     for image in result:
         result_dict["details"].append(image)
@@ -330,91 +333,32 @@ def ConfigSectionMap(section, Config):
             dict1[option] = None
     return dict1
 
-#Return variables declared in config file in [api] section
-#Return listen_url and listen_port used to run bottle app
-def load_api_section(config):
-    try:
-        listen_url = ConfigSectionMap('api', config)['listen_url']
-        listen_port = ConfigSectionMap('api', config)['listen_port']
-    except Exception as e:
-        print("Error in loading api section: {}").format(e)
-        sys.exit(-1)
-    return listen_url, listen_port
-
-#Load mongo configuration from config file
-#Return a dict with all parameters that can be given to mongo plugin instance
-def load_mongo_section(config):
-    mongo_config = {}
-    try:
-        if ConfigSectionMap('mongodb', config)['url']:
-            mongo_config['uri'] = "mongodb://" + ConfigSectionMap('mongodb', config)['url']
-        if ConfigSectionMap('mongodb', config)['dbname']:
-            mongo_config['db'] = ConfigSectionMap('mongodb', config)['dbname']
-        if ConfigSectionMap('mongodb', config)['collectionname']:
-            app.config["collectionname"] = ConfigSectionMap('mongodb', config)['collectionname']
-        mongo_config["json_mongo"] = True
-        plugin = MongoPlugin(**mongo_config)
-    except Exception as e:
-        print("Error in mongodb: {}").format(e)
-        sys.exit(-1)
-    return mongo_config
-
-#Load mysql configuration from config file
-#Return a dict with all parameters that can be given to bottle_mysql.Plugin instance
-def load_mysql_section(config):
-    mysql_config = {}
-    try:
-        mysql_config["dbuser"] = ConfigSectionMap('mysql', config)['user']
-        mysql_config["dbpass"] = ConfigSectionMap('mysql', config)['password']
-        mysql_config["dbname"] = ConfigSectionMap('mysql', config)['dbname']
-        mysql_config["dbhost"] = ConfigSectionMap('mysql', config)['url']
-        mysql_config["dbport"] = int(ConfigSectionMap('mysql', config)['port'])
-    except Exception as e:
-        print("Error in mongodb: {}").format(e)
-        sys.exit(-1)
-    return mysql_config
-
-#Load variables declared in config file in [oldmonitoring] section and load it to Bottle app.
-#These variables can be getted from route function using app.config.get('variable')
-def load_oldmonitoring_section(config):
-    try:
-        app.config["old_monitoring_url"] = ConfigSectionMap('oldmonitoring', config)['url']
-        app.config["old_monitoring_port"] = ConfigSectionMap('oldmonitoring', config)['port']
-    except Exception as e:
-        print("Error in old monitoring section: {}").format(e)
-        sys.exit(-1)
-    return True
-
-#Load variables declared in config file in [idm] section and load it to Bottle app.
-#These variables can be getted from route function using app.config.get('variable')
-def load_idm_section(config):
-    try:
-        app.config["token_url"] = ConfigSectionMap('idm', config)['token_url']
-        app.config["service_url"] = ConfigSectionMap('idm', config)['service_url']
-        app.config["idm_username"] = ConfigSectionMap('idm', config)['username']
-        app.config["idm_password"] = ConfigSectionMap('idm', config)['password']
-        app.config["idm_account_url"] = ConfigSectionMap('idm', config)['account_url']
-    except Exception as e:
-        print "Error in IDM config: " + str(e)
-        sys.exit(-1)
-
-
 #Function to convert a string to boolean value.
 #Used for load_regionNew
 def str2bool(v):
   return v.lower() in ("yes", "true", "t", "1")
 
-#Load the new map regionNew inside app.
-#This map is used to check if the region belongs to new or old monitoring
-#In the future this function can be removed
-def load_regionNew(Config):
-    try:
-        regionNew = dict(Config._sections['regionNew'])
-        app.config['regionNew'] = regionNew
-        del regionNew["__name__"] # In the map there are also the __name__ of the section
-    except Exception as e:
-        print "Error in regionNew config: " + str(e)
-        sys.exit(-1)
+'''
+Function that given a config file and a list of section
+return the dict in the form:
+<section_name> : <map of value>
+For example: map["mongodb"] contains a map of mongodb section attributes
+If app is passed load map also in the app
+'''
+def config_to_dict(section_list, config, app=None):
+    if not isinstance(section_list, (list)):
+        print "section_list must be a list"
+
+    result_map = {}
+    for item in section_list:
+        item_map = dict(config._sections[item])
+        del item_map["__name__"]
+        app.config[item] = item_map
+        result_map[item] = item_map
+        if app:
+            app.config[item] = item_map
+    
+    return result_map
 
 #Main function
 def main():
@@ -433,18 +377,29 @@ def main():
         print("Problem with config file: {}").format(e)
         sys.exit(-1)
 
-    #Load settings from Config file
-    load_regionNew(Config) #Load region_map
-    listen_url, listen_port = load_api_section(Config)
-    mongo_plugin = MongoPlugin(**load_mongo_section(Config))
-    mysql_plugin = bottle_mysql.Plugin(**load_mysql_section(Config))
-    load_idm_section(Config)
-    load_oldmonitoring_section(Config)
+    #Get a map with config declared in SECTION_TO_LOAD and insert it in bottle app
+    SECTION_TO_LOAD = ["mysql", "mongodb", "mongodbOld", "api", "key", "idm", "oldmonitoring", "newmonitoring", "regionNew"]
+    config_map = config_to_dict(section_list = SECTION_TO_LOAD, config = Config, app=app)
 
+    #Create and install plugin in bottle app
+    mongo_map = dict(config_map["mongodb"])
+    mongo_old_map = dict(config_map["mongodbOld"])
+    mongo_map["keyword"] = "mongodb"
+    mongo_old_map["keyword"] = "mongodbOld" #declares keyword to not conflict with mongodb instance
+    mongo_old_map.pop("collectionname", None) #Remove this because MongoPlugin not recognize
+    mongo_map.pop("collectionname", None)
+    mongo_plugin = MongoPlugin(**mongo_map)
+    mongo_plugin_old = MongoPlugin(**mongo_old_map)
+    mysql_plugin = bottle_mysql.Plugin(**config_map["mysql"])
 
     app.install(mongo_plugin)
+    app.install(mongo_plugin_old)
     app.install(mysql_plugin)
+    ##
 
+    listen_url = config_map['api']['listen_url']
+    listen_port = config_map['api']['listen_port']
+    
     #App runs in infinite loop
     run(app, host=listen_url, port=listen_port, debug=True)
 
