@@ -93,8 +93,6 @@ def get_token_from_response(response):
     elif request.headers.get(HEADER_AUTH) is not None:
         token = request.headers.get(HEADER_AUTH)
         auth_map[HEADER_AUTH] = token
-    else:
-        abort(404, "Error in token format")
     return auth_map
 
 @app.error(404)
@@ -115,8 +113,8 @@ def select_monitoring_to_forward(regionid):
     try:
         if str2bool( app.config["regionNew"][regionid.lower()] ):
             return app.config["newmonitoring"]["url"], app.config["newmonitoring"]["port"]
-    except Exception as e:
-        print "Exception in select_monitoring_to_forward: " + str(e)
+    except KeyError as e:
+        print "Region id not found in configuration file: " + str(type(e)) + " " + str(e)
         pass
     return  app.config["oldmonitoring"]["url"], app.config["oldmonitoring"]["port"]
 'regionNew'
@@ -129,18 +127,16 @@ def make_request(request_url, request, regionid=None):
     monitoring_url, monitoring_port = select_monitoring_to_forward(regionid)
     base_url = "http://" + monitoring_url + ":" + monitoring_port
     url_request = base_url + request_url + options_from_request(request)
+    req = urllib2.Request(url_request)
+    token_map = get_token_from_response(request)
+
+    if bool(token_map):
+        req.headers[ token_map.iteritems().next()[0] ] = token_map.iteritems().next()[1]
     try:
-        req = urllib2.Request(url_request)
-        token_map = get_token_from_response(request)
-        if token_map is not None:
-            req.headers[ token_map.iteritems().next()[0] ] = token_map.iteritems().next()[1]
-        response_old_monitoring = urllib2.urlopen(req)
-    except urllib2.HTTPError as e:
-        return {"Error" : "UNAUTHORIZED"}
-    except Exception as e:
-        print "Error in make_request: " + str(e)
-        return {}
-    return json.loads(response_old_monitoring.read())
+        response = urllib2.urlopen(req)
+    except urllib2.HTTPError, error:
+         response = error
+    return json.loads(response.read())
 
 '''
 Given an API request return a map with the option after '?'
