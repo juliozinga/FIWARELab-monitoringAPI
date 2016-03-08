@@ -134,10 +134,12 @@ def make_request(request_url, request, regionid=None):
     if bool(token_map):
         req.headers[ token_map.iteritems().next()[0] ] = token_map.iteritems().next()[1]
     try:
-        response = urllib2.urlopen(req)
+        my_response = urllib2.urlopen(req)
     except urllib2.HTTPError, error:
-         response = error
-    return json.loads(response.read())
+        my_response = error
+    response.status = my_response.getcode()
+    response.set_header("Content-Type", my_response.info().getheader("Content-Type"))
+    return my_response
 
 '''
 Given an API request return a map with the option after '?'
@@ -176,62 +178,62 @@ def get_all_regions():
 @app.route('/monitoring/regions/<regionid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/', method='GET')
 def get_region(regionid="ID of the region"):
-    return json.dumps(make_request("/monitoring/regions/" + regionid, request=request, regionid=regionid))
+    return make_request("/monitoring/regions/" + regionid, request=request, regionid=regionid)
 
 @app.route('/monitoring/regions/<regionid>/services', method='GET')
 @app.route('/monitoring/regions/<regionid>/services/', method='GET')
 def get_all_services_by_region(db, regionid="ID of the region"):
-    return json.dumps(make_request("/monitoring/regions/" + regionid + "/services", request=request, regionid=regionid))
+    return make_request("/monitoring/regions/" + regionid + "/services", request=request, regionid=regionid)
 
 @app.route('/monitoring/regions/<regionid>/hosts', method='GET')
 @app.route('/monitoring/regions/<regionid>/hosts/', method='GET')
 def get_all_hosts(regionid="ID of the region"):
-    return json.dumps(make_request("/monitoring/regions/" + regionid + "/hosts", request=request, regionid=regionid))
+    return make_request("/monitoring/regions/" + regionid + "/hosts", request=request, regionid=regionid)
 
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>/', method='GET')
 def get_host(regionid="ID of the region", hostid="ID of the host"):
-    return json.dumps(make_request("/monitoring/regions/" + regionid + "/hosts/" + hostid, request=request, regionid=regionid))
+    return make_request("/monitoring/regions/" + regionid + "/hosts/" + hostid, request=request, regionid=regionid)
 
 @app.route('/monitoring/regions/<regionid>/vms', method='GET')
 @app.route('/monitoring/regions/<regionid>/vms/', method='GET')
 def get_all_vms(regionid="ID of the region"):
-    return json.dumps(make_request("/monitoring/regions/" + regionid + "/vms/" , request=request, regionid = regionid))
+    return make_request("/monitoring/regions/" + regionid + "/vms/" , request=request, regionid = regionid)
 
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/', method='GET')
 def get_vm(regionid="ID of the region", vmid="ID of the vm"):
-    return json.dumps(make_request("/monitoring/regions/" + regionid + "/vms/" + vmid, request=request, regionid=regionid))
+    return make_request("/monitoring/regions/" + regionid + "/vms/" + vmid, request=request, regionid=regionid)
 
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>/services', method='GET')
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>/services/', method='GET')
 def get_all_services_by_host(regionid="ID of the region", hostid="ID of the host"):
-    return json.dumps(make_request("/monitoring/regions/" + regionid + "/hosts/" + hostid + "/services", request=request, regionid=regionid))
+    return make_request("/monitoring/regions/" + regionid + "/hosts/" + hostid + "/services", request=request, regionid=regionid)
 
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>/services/<serviceName>', method='GET')
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>/services/<serviceName>/', method='GET')
 def get_service_by_host(regionid="ID of the region", hostid="ID of the host", serviceName="Service name"):
-    return json.dumps(make_request("/monitoring/regions/" + regionid + "/hosts/" + hostid + "/services/" + serviceName , request=request, regionid=regionid))
+    return make_request("/monitoring/regions/" + regionid + "/hosts/" + hostid + "/services/" + serviceName , request=request, regionid=regionid)
 
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/services', method='GET')
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/services/', method='GET')
 def get_all_services_by_vm(regionid="ID of the region", vmid="ID of the vm"):
-    return json.dumps(make_request("/monitoring/regions/" + regionid + "/vms/" + vmid + "/services", request=request, regionid=regionid))
+    return make_request("/monitoring/regions/" + regionid + "/vms/" + vmid + "/services", request=request, regionid=regionid)
 
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/services/<serviceName>', method='GET')
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/services/<serviceName>/', method='GET')
 def get_service_by_vm(regionid="ID of the region", vmid="ID of the vm", serviceName="Service name"):
-    return json.dumps(make_request("/monitoring/regions/" + regionid + "/vms/" + vmid + "services/" + serviceName, request=request, regionid=regionid))
+    return make_request("/monitoring/regions/" + regionid + "/vms/" + vmid + "services/" + serviceName, request=request, regionid=regionid)
 
 @app.route('/monitoring/regions/<regionid>/nes', method='GET')
 @app.route('/monitoring/regions/<regionid>/nes/', method='GET')
 def get_all_nes(regionid="ID of the region"):
-    return json.dumps(make_request("/monitoring/regions/" + regionid + "/nes/", request=request, regionid=regionid))
+    return make_request("/monitoring/regions/" + regionid + "/nes/", request=request, regionid=regionid)
 
 @app.route('/monitoring/regions/<regionid>/nes/<neid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/nes/<neid>/', method='GET')
 def get_ne(regionid="ID of the region", neid="ID of the network"):
-    return json.dumps(make_request("/monitoring/regions/" + regionid + "/nes/" + neid, request=request, regionid=regionid))
+    return make_request("/monitoring/regions/" + regionid + "/nes/" + neid, request=request, regionid=regionid)
 
 @app.route('/monitoring/host2hosts', method='GET')
 @app.route('/monitoring/host2hosts/', method='GET')
