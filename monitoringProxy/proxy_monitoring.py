@@ -4,6 +4,7 @@ from bottle import route, run, request, error, response, Bottle, redirect, HTTPE
 from pymongo import MongoClient, database
 from bottle.ext.mongo import MongoPlugin
 from bson.json_util import dumps
+from paste import httpserver
 import argparse
 import ConfigParser
 import sys
@@ -387,7 +388,7 @@ def main():
     listen_port = config_map['api']['listen_port']
     
     #App runs in infinite loop
-    run(app, host=listen_url, port=listen_port, debug=True)
+    httpserver.serve(app, host=listen_url, port=listen_port)
 
 if __name__ == '__main__':
     main()
