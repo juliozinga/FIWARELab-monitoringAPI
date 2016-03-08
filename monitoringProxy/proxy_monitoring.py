@@ -111,13 +111,22 @@ If the regionId has old monitoring return the old monitoring url,
 If the region has new monitoring return the new one
 '''
 def select_monitoring_to_forward(regionid):
+    if is_region_new(regionid):
+        return app.config["newmonitoring"]["url"], app.config["newmonitoring"]["port"]
+    else:
+        return  app.config["oldmonitoring"]["url"], app.config["oldmonitoring"]["port"]
+'''
+Return True if region use new monitoring system false otherwise
+'''
+def is_region_new(regionid):
     try:
         if str2bool( app.config["regionNew"][regionid.lower()] ):
-            return app.config["newmonitoring"]["url"], app.config["newmonitoring"]["port"]
+            return True
     except KeyError as e:
         print "Region id not found in configuration file: " + str(type(e)) + " " + str(e)
         pass
-    return  app.config["oldmonitoring"]["url"], app.config["oldmonitoring"]["port"]
+    return False
+
 'regionNew'
 '''
 Make the request to old monitoring api
@@ -178,7 +187,11 @@ def get_all_regions():
 @app.route('/monitoring/regions/<regionid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/', method='GET')
 def get_region(regionid="ID of the region"):
-    return make_request("/monitoring/regions/" + regionid, request=request, regionid=regionid)
+    if is_region_new(regionid):
+        region = get_region_from_mongo(mongodb=mongodb, regionid=regionid)
+        # check region not empty and return
+    else:
+        return make_request("/monitoring/regions/" + regionid, request=request, regionid=regionid)
 
 @app.route('/monitoring/regions/<regionid>/services', method='GET')
 @app.route('/monitoring/regions/<regionid>/services/', method='GET')
@@ -301,6 +314,19 @@ def get_image_from_mongo(mongodb, imageid, regionid):
     for image in result:
         result_dict["details"].append(image)
     return result_dict
+
+def get_region_from_mongo(mongodb, regionid):
+    # preparo l'oggetto response
+    # get sul mongo della entity region
+    # get sul mongo delle entities hosts relative
+    # get sul mongo delle entities vms relative
+    pass
+
+def get_vms_from_mongo(mongodb, regionid):
+    pass
+
+def get_hosts_from_mongo(mongodb, regionid):
+    pass
 
 #Argument management
 def arg_parser():
