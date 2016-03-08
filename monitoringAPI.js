@@ -148,7 +148,7 @@ fs.readFile(config_file, 'utf8', function (err,data) {
   else if(data && IsJsonString(data)){
 
     cfgObj = JSON.parse(data);
-    if(cfgObj && cfgObj.KPurl && cfgObj.KPusr  && cfgObj.KPpwd   && cfgObj.IDMurl && cfgObj.apiIPaddress && cfgObj.apiPort && cfgObj.mongoIP && cfgObj.mongoDBname && cfgObj.regionTTL && cfgObj.hostTTL && cfgObj.vmTTL && cfgObj.serviceTTL && cfgObj.h2hTTL){
+    if(cfgObj && cfgObj.KPurl && cfgObj.KPusr  && cfgObj.KPpwd   && cfgObj.IDMurl && cfgObj.apiIPaddress && cfgObj.apiPort && cfgObj.mongoIP && cfgObj.mongoDBname && cfgObj.mongoPort && cfgObj.regionTTL && cfgObj.hostTTL && cfgObj.vmTTL && cfgObj.serviceTTL && cfgObj.h2hTTL){
       //enable server
 optionsKP = {
       url: cfgObj.KPurl+'/v3/auth/tokens',
@@ -163,7 +163,7 @@ optionsIDM = {
 };
 
       IDMurl=cfgObj.IDMurl
-      mongoPath='mongodb://'+cfgObj.mongoIP+'/'+cfgObj.mongoDBname;
+      mongoPath='mongodb://'+cfgObj.mongoIP+':'+cfgObj.mongoPort+'/'+cfgObj.mongoDBname;
       mongoose.connect(mongoPath);
       var server = http.createServer(function (req, res){manageRequest(req,res);});
 	server.listen(cfgObj.apiPort, cfgObj.apiIPaddress);
