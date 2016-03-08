@@ -173,8 +173,8 @@ def root():
 @app.route('/monitoring/regions', method='GET')
 @app.route('/monitoring/regions/', method='GET')
 def get_all_regions():
-    out = make_request("/monitoring/regions", request=request)
-    return json.dumps( make_request("/monitoring/regions", request=request) )
+    return json.dumps(make_request(
+        "/monitoring/regions", request=request))
 
 @app.route('/monitoring/regions/<regionid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/', method='GET')
