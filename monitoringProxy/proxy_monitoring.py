@@ -18,6 +18,7 @@ import bottle_mysql
 import base64
 import cookielib
 import urllib
+import copy
 
 ###Main bottle app
 app = Bottle()
@@ -181,8 +182,10 @@ def root():
 
 @app.route('/monitoring/regions', method='GET')
 @app.route('/monitoring/regions/', method='GET')
-def get_all_regions():
-    return json.dumps(make_request("/monitoring/regions", request=request))
+def get_all_regions(mongodb, mongodbOld):
+    all_regions = get_all_regions_from_mongo(mongodb=mongodb, mongodbOld=mongodbOld)
+    return json.dumps(all_regions)
+    #return json.dumps(make_request("/monitoring/regions", request=request))
 
 @app.route('/monitoring/regions/<regionid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/', method='GET')
@@ -286,6 +289,83 @@ base_dict_list = {
         },
         "id": ""
     }
+base_dict_region = {
+        "_links": {
+          "self": {
+            "href": ""
+          }
+        },
+        "id": ""
+      }
+
+base_dic_all_regions = {
+  "_links": {
+    "self": {
+      "href": ""
+    }
+  },
+  "_embedded": {
+    "regions": [
+    ]
+  },
+  "basicUsers": 0,
+  "trialUsers": 0,
+  "communityUsers": 0,
+  "totalUsers": 0,
+  "total_nb_users": 0,
+  "totalCloudOrganizations": 0,
+  "totalUserOrganizations": 0,
+  "total_nb_organizations": 0,
+  #
+  "total_nb_cores": 0,
+  "total_nb_cores_enabled": 0,
+  "total_nb_ram": 0,
+  "total_nb_disk": 0,
+  "total_nb_vm": 0,
+  "total_ip_assigned": 0,
+  "total_ip_allocated": 0,
+  "total_ip": 0
+}
+
+parameters_mapping = {
+  "total_nb_cores": "nb_cores",
+  "total_nb_cores_enabled": "nb_cores_enabled",
+  "total_nb_ram": "nb_ram",
+  "total_nb_disk": "nb_disk",
+  "total_nb_vm": "nb_vm",
+  "total_ip_assigned": "ipAssigned",
+  "total_ip_allocated": "ipAllocated",
+  "total_ip": "ipTot"}
+
+def get_all_regions_from_mongo(mongodb, mongodbOld):
+    result_new = mongodb[app.config["mongodbOld"]["collectionname"]].find({"_id.type": "region"})
+
+    region_list = []
+    for region in result_new:
+        region_id = region["_id"]["id"]
+        base_dict_region["_links"]["self"]["href"] = "/monitoring/regions/" + region_id
+        base_dict_region["id"] = region_id
+        base_dic_all_regions["_embedded"]["regions"].append(copy.deepcopy(base_dict_region))
+        region_list.append(region_id)
+
+    result_old = mongodb[app.config["mongodb"]["collectionname"]].find({"_id.type": "region"})
+    for region in result_old:
+        if region["_id"]["id"] not in region_list:
+            region_id = region["_id"]["id"]
+            base_dict_region["_links"]["self"]["href"] = "/monitoring/regions/" + region_id
+            base_dic_all_regions["_embedded"]["regions"].append(base_dict_region)
+            region_list.append(region_id)
+        # else:
+        #     print region["_id"]["id"] + " already present"
+
+    for regionid in region_list:
+        region_info = get_region_from_mongo(mongodb, regionid)
+        if region_info is not None:
+            for attribute in parameters_mapping.iteritems():
+                base_dic_all_regions[attribute(0)] = base_dic_all_regions[attribute(0)] + attribute(1)
+
+    return base_dic_all_regions
+
 
 '''
 mongodb is the local mongodb bottle plugin
