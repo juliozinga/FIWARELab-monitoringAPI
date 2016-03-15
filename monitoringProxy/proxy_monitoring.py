@@ -189,10 +189,11 @@ def get_all_regions(mongodb, mongodbOld):
 
 @app.route('/monitoring/regions/<regionid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/', method='GET')
-def get_region(regionid="ID of the region"):
+def get_region(mongodb, regionid="ID of the region"):
     if is_region_new(regionid):
         region = get_region_from_mongo(mongodb=mongodb, regionid=regionid)
-        # check region not empty and return
+        if region is not None:
+            return region
     else:
         return make_request("/monitoring/regions/" + regionid, request=request, regionid=regionid)
 
@@ -289,14 +290,59 @@ base_dict_list = {
         },
         "id": ""
     }
-base_dict_region = {
-        "_links": {
-          "self": {
-            "href": ""
-          }
-        },
-        "id": ""
-      }
+# region_entity = {
+#         "_links": {
+#           "self": {
+#             "href": ""
+#           },
+#           "hosts": {
+#             "href": ""
+#           }
+#         },
+#         "id": ""
+#       }
+
+
+region_entity = {
+  "_links": {
+    "self": {
+      "href": ""
+    },
+    "hosts": {
+      "href": ""
+    }
+  },
+  "measures": [
+    {
+      "timestamp": "",
+      "ipAssigned": "",
+      "ipAllocated": "",
+      "ipTot": "",
+      "nb_cores_used": 0,
+      # "nb_cores_enabled": 0,
+      "nb_cores": 0,
+      "nb_disk": 0,
+      "nb_ram": 0,
+      "nb_vm": 0,
+      "ram_allocation_ratio": "",
+      "cpu_allocation_ratio": "",
+      "percRAMUsed": 0,
+      "percDiskUsed": 0
+    }
+  ],
+  "id": "",
+  "name": "",
+  "country": "",
+  "latitude": "",
+  "longitude": "",
+  "nb_cores": 0,
+  # "nb_cores_enabled": 0,
+  "nb_cores_used": 0,
+  "nb_ram": 0,
+  "nb_disk": 0,
+  "nb_vm": 0,
+  "power_consumption": ""
+}
 
 base_dic_all_regions = {
   "_links": {
@@ -327,7 +373,7 @@ base_dic_all_regions = {
   "total_ip": 0
 }
 
-parameters_mapping = {
+all_region_parameters_mapping = {
   "total_nb_cores": "nb_cores",
   "total_nb_cores_enabled": "nb_cores_enabled",
   "total_nb_ram": "nb_ram",
@@ -343,25 +389,25 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
     region_list = []
     for region in result_new:
         region_id = region["_id"]["id"]
-        base_dict_region["_links"]["self"]["href"] = "/monitoring/regions/" + region_id
-        base_dict_region["id"] = region_id
-        base_dic_all_regions["_embedded"]["regions"].append(copy.deepcopy(base_dict_region))
+        region_entity["_links"]["self"]["href"] = "/monitoring/regions/" + region_id
+        region_entity["id"] = region_id
+        base_dic_all_regions["_embedded"]["regions"].append(copy.deepcopy(region_entity))
         region_list.append(region_id)
 
     result_old = mongodb[app.config["mongodb"]["collectionname"]].find({"_id.type": "region"})
     for region in result_old:
         if region["_id"]["id"] not in region_list:
             region_id = region["_id"]["id"]
-            base_dict_region["_links"]["self"]["href"] = "/monitoring/regions/" + region_id
-            base_dic_all_regions["_embedded"]["regions"].append(base_dict_region)
+            region_entity["_links"]["self"]["href"] = "/monitoring/regions/" + region_id
+            base_dic_all_regions["_embedded"]["regions"].append(region_entity)
             region_list.append(region_id)
         # else:
         #     print region["_id"]["id"] + " already present"
 
-    for regionid in region_list:
+    for regionid in region_list:        
         region_info = get_region_from_mongo(mongodb, regionid)
         if region_info is not None:
-            for attribute in parameters_mapping.iteritems():
+            for attribute in all_region_parameters_mapping.iteritems():
                 base_dic_all_regions[attribute(0)] = base_dic_all_regions[attribute(0)] + attribute(1)
 
     return base_dic_all_regions
@@ -395,18 +441,93 @@ def get_image_from_mongo(mongodb, imageid, regionid):
         result_dict["details"].append(image)
     return result_dict
 
-def get_region_from_mongo(mongodb, regionid):
-    # preparo l'oggetto response
-    # get sul mongo della entity region
-    # get sul mongo delle entities hosts relative
-    # get sul mongo delle entities vms relative
-    pass
+def get_region_from_mongo(mongodb, regionid):    
+    # get sul mongo della entity region    
+    regions = mongodb[app.config["mongodb"]["collectionname"]].find({"_id.type":"region"})
+    for region in regions:
+        if regionid is not None and region["_id"]["id"] == regionid:
 
-def get_vms_from_mongo(mongodb, regionid):
-    pass
+            region_entity["_links"]["self"]["href"] = "/monitoring/regions/" + regionid
+            region_entity["_links"]["hosts"]["href"] = "/monitoring/regions/" + regionid + "/hosts"
+            region_entity["measures"][0]["timestamp"] = region["modDate"]
+            region_entity["measures"][0]["ipAssigned"] = region["attrs"]["ipUsed"]["value"]
+            region_entity["measures"][0]["ipAllocated"] = region["attrs"]["ipAvailable"]["value"]
+            region_entity["measures"][0]["ipTot"] = region["attrs"]["ipTot"]["value"]            
+            
+            region_entity["measures"][0]["ram_allocation_ratio"] = region["attrs"]["ram_allocation_ratio"]["value"]
+            region_entity["measures"][0]["cpu_allocation_ratio"] = region["attrs"]["cpu_allocation_ratio"]["value"]            
+                        
+            region_entity["id"] = region["_id"]["id"]
+            region_entity["name"] = region["_id"]["id"]
+            region_entity["country"] = region["attrs"]["location"]["value"]
+            region_entity["latitude"] = region["attrs"]["latitude"]["value"]
+            region_entity["longitude"] = region["attrs"]["longitude"]["value"]
+            region_entity["longitude"] = region["attrs"]["longitude"]["value"]
 
-def get_hosts_from_mongo(mongodb, regionid):
-    pass
+            # aggragation from virtual machines on region 
+            vms = get_cursor_active_vms_from_mongo(mongodb, regionid)
+            if vms is not None:
+                vms_data = aggr_vms_data(vms)
+                region_entity["measures"][0]["nb_vm"] = vms_data["nb_vm"]
+                region_entity["nb_vm"] = vms_data["nb_vm"]
+
+            # aggragation from hosts on region
+            hosts = get_cursor_hosts_from_mongo(mongodb, regionid)
+            if hosts is not None:
+                hosts_data = aggr_hosts_data(hosts)                
+                region_entity["nb_ram"] = hosts_data["nb_ram"]
+                region_entity["measures"][0]["nb_ram"] = hosts_data["nb_ram"]
+
+            region_entity["nb_cores_used"] = "xxx"            
+            region_entity["nb_cores"] = "xxx"
+            region_entity["nb_disk"] = "xxx"
+            
+
+            region_entity["measures"][0]["nb_cores_used"] = "xxx"
+            region_entity["measures"][0]["nb_cores"] = "xxx"
+            region_entity["measures"][0]["nb_disk"] = "xxx"            
+            region_entity["measures"][0]["percRAMUsed"] = "xxx"
+            region_entity["measures"][0]["percDiskUsed"] = "xxx"            
+
+        else:
+            return None
+        return region_entity
+        # get sul mongo delle entities hosts relative
+        # get sul mongo delle entities vms relative
+    
+def get_cursor_vms_from_mongo(mongodb, regionid):
+    vms = mongodb[app.config["mongodb"]["collectionname"]].find({"$and": [{"_id.type": "vm" }, {"_id.id": {"$regex" : regionid+':'}}] })
+    if vms.count() >= 1:
+        return vms
+    else:
+        return None
+
+def get_cursor_active_vms_from_mongo(mongodb, regionid):
+    vms = mongodb[app.config["mongodb"]["collectionname"]].find({"$and": [{"_id.type": "vm" }, {"_id.id": {"$regex" : regionid+':'}}, {"attrs.status.value" : "active"}] })
+    if vms.count() >= 1:
+        return vms
+    else:
+        return None
+
+def get_cursor_hosts_from_mongo(mongodb, regionid):
+    hosts = mongodb[app.config["mongodb"]["collectionname"]].find({"$and": [{"_id.type": "host" }, {"_id.id": {"$regex" : regionid+':'}}] })
+    if hosts.count() >= 1:
+        return hosts
+    else:
+        return None
+
+def aggr_vms_data(vms):    
+    vms_data = {"nb_vm" : 0}
+    vms_data["nb_vm"] = vms.count()
+    return vms_data
+
+def aggr_hosts_data(hosts):
+    hosts_data = {"nb_ram" : 0}
+    # import ipdb; ipdb.set_trace()    
+    for host in hosts:
+        if host.get("attrs", {}).has_key("ramTot"):
+            hosts_data["nb_ram"] += int(host["attrs"]["ramTot"]["value"])
+    return hosts_data
 
 #Argument management
 def arg_parser():
