@@ -34,7 +34,7 @@ def is_idm_authorized(auth_url, token_map):
         elif "Authorization" in token_map:
             token_string = base64.b64decode(token_map["Authorization"].split(" ")[1])
         else:
-            raise Exception('Header not known') 
+            raise Exception('Header not known')
     except Exception as e:
         print "Error in decoding token: " + str(e)
         return False
@@ -406,7 +406,7 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
         # else:
         #     print region["_id"]["id"] + " already present"
 
-    for regionid in region_list:        
+    for regionid in region_list:
         region_info = get_region_from_mongo(mongodb, regionid)
         if region_info is not None:
             for attribute in all_region_parameters_mapping.iteritems():
@@ -418,7 +418,7 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
 '''
 mongodb is the local mongodb bottle plugin
 filter_region should be the region name, used to filter the images.
-If no filter_region append all region... 
+If no filter_region append all region...
 '''
 def get_all_images_from_mongo(mongodb, filter_region=None):
     result = mongodb[app.config["mongodb"]["collectionname"]].find({"_id.type":"image"})
@@ -443,8 +443,8 @@ def get_image_from_mongo(mongodb, imageid, regionid):
         result_dict["details"].append(image)
     return result_dict
 
-def get_region_from_mongo(mongodb, regionid):    
-    # get sul mongo della entity region    
+def get_region_from_mongo(mongodb, regionid):
+    # get sul mongo della entity region
     regions = mongodb[app.config["mongodb"]["collectionname"]].find({"_id.type":"region"})
     for region in regions:
         if regionid is not None and region["_id"]["id"] == regionid:
@@ -454,11 +454,11 @@ def get_region_from_mongo(mongodb, regionid):
             region_entity["measures"][0]["timestamp"] = region["modDate"]
             region_entity["measures"][0]["ipAssigned"] = region["attrs"]["ipUsed"]["value"]
             region_entity["measures"][0]["ipAllocated"] = region["attrs"]["ipAvailable"]["value"]
-            region_entity["measures"][0]["ipTot"] = region["attrs"]["ipTot"]["value"]            
-            
+            region_entity["measures"][0]["ipTot"] = region["attrs"]["ipTot"]["value"]
+
             region_entity["measures"][0]["ram_allocation_ratio"] = region["attrs"]["ram_allocation_ratio"]["value"]
-            region_entity["measures"][0]["cpu_allocation_ratio"] = region["attrs"]["cpu_allocation_ratio"]["value"]            
-                        
+            region_entity["measures"][0]["cpu_allocation_ratio"] = region["attrs"]["cpu_allocation_ratio"]["value"]
+
             region_entity["id"] = region["_id"]["id"]
             region_entity["name"] = region["_id"]["id"]
             region_entity["country"] = region["attrs"]["location"]["value"]
@@ -466,7 +466,7 @@ def get_region_from_mongo(mongodb, regionid):
             region_entity["longitude"] = region["attrs"]["longitude"]["value"]
             region_entity["longitude"] = region["attrs"]["longitude"]["value"]
 
-            # aggragation from virtual machines on region 
+            # aggragation from virtual machines on region
             vms = get_cursor_active_vms_from_mongo(mongodb, regionid)
             if vms is not None:
                 vms_data = aggr_vms_data(vms)
@@ -476,7 +476,7 @@ def get_region_from_mongo(mongodb, regionid):
             # aggragation from hosts on region
             hosts = get_cursor_hosts_from_mongo(mongodb, regionid)
             if hosts is not None:
-                hosts_data = aggr_hosts_data(hosts)                
+                hosts_data = aggr_hosts_data(hosts)
                 region_entity["nb_ram"] = hosts_data["ramTot"]
                 region_entity["measures"][0]["nb_ram"] = hosts_data["ramTot"]
                 region_entity["nb_disk"] = hosts_data["diskTot"]
@@ -494,7 +494,7 @@ def get_region_from_mongo(mongodb, regionid):
         else:
             return None
         return region_entity
-    
+
 def get_cursor_vms_from_mongo(mongodb, regionid):
     vms = mongodb[app.config["mongodb"]["collectionname"]].find({"$and": [{"_id.type": "vm" }, {"_id.id": {"$regex" : regionid+':'}}] })
     if vms.count() >= 1:
@@ -588,7 +588,7 @@ def config_to_dict(section_list, config, app=None):
         result_map[item] = item_map
         if app:
             app.config[item] = item_map
-    
+
     return result_map
 
 #Main function
@@ -630,7 +630,7 @@ def main():
 
     listen_url = config_map['api']['listen_url']
     listen_port = config_map['api']['listen_port']
-    
+
     #App runs in infinite loop
     httpserver.serve(app, host=listen_url, port=listen_port)
 
