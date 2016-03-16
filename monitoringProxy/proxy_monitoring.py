@@ -475,25 +475,23 @@ def get_region_from_mongo(mongodb, regionid):
             hosts = get_cursor_hosts_from_mongo(mongodb, regionid)
             if hosts is not None:
                 hosts_data = aggr_hosts_data(hosts)                
-                region_entity["nb_ram"] = hosts_data["nb_ram"]
-                region_entity["measures"][0]["nb_ram"] = hosts_data["nb_ram"]
-
-            region_entity["nb_cores_used"] = "xxx"            
-            region_entity["nb_cores"] = "xxx"
-            region_entity["nb_disk"] = "xxx"
-            
-
-            region_entity["measures"][0]["nb_cores_used"] = "xxx"
-            region_entity["measures"][0]["nb_cores"] = "xxx"
-            region_entity["measures"][0]["nb_disk"] = "xxx"            
-            region_entity["measures"][0]["percRAMUsed"] = "xxx"
-            region_entity["measures"][0]["percDiskUsed"] = "xxx"            
-
+                region_entity["nb_ram"] = hosts_data["ramTot"]
+                region_entity["measures"][0]["nb_ram"] = hosts_data["ramTot"]
+                region_entity["nb_disk"] = hosts_data["diskTot"]
+                region_entity["measures"][0]["nb_disk"] = hosts_data["diskTot"]
+                region_entity["nb_cores"] = hosts_data["cpuTot"]
+                region_entity["measures"][0]["nb_cores"] = hosts_data["cpuTot"]
+                region_entity["nb_cores_used"] = hosts_data["cpuNow"]
+                region_entity["measures"][0]["nb_cores_used"] = hosts_data["cpuNow"]
+                region_entity["measures"][0]["percRAMUsed"] = 0
+                region_entity["measures"][0]["percDiskUsed"] = 0
+                if hosts_data["ramTot"] != 0:
+                    region_entity["measures"][0]["percRAMUsed"] = hosts_data["ramNowTot"]/(hosts_data["ramTot"] * float(region["attrs"]["ram_allocation_ratio"]["value"]))
+                if hosts_data["diskTot"] != 0:
+                    region_entity["measures"][0]["percDiskUsed"] = hosts_data["diskNowTot"]/hosts_data["diskTot"]
         else:
             return None
         return region_entity
-        # get sul mongo delle entities hosts relative
-        # get sul mongo delle entities vms relative
     
 def get_cursor_vms_from_mongo(mongodb, regionid):
     vms = mongodb[app.config["mongodb"]["collectionname"]].find({"$and": [{"_id.type": "vm" }, {"_id.id": {"$regex" : regionid+':'}}] })
@@ -516,17 +514,32 @@ def get_cursor_hosts_from_mongo(mongodb, regionid):
     else:
         return None
 
-def aggr_vms_data(vms):    
+def aggr_vms_data(vms):
+    """
+    Function that aggregate vm entity data given a collection (cursor retuned from mongo query) of vms
+    """
     vms_data = {"nb_vm" : 0}
     vms_data["nb_vm"] = vms.count()
     return vms_data
 
 def aggr_hosts_data(hosts):
-    hosts_data = {"nb_ram" : 0}
-    # import ipdb; ipdb.set_trace()    
+    """
+    Function that aggregate host entity data given a collection (cursor retuned from mongo query) of hosts
+    """
+    hosts_data = {"ramTot" : 0, "diskTot" : 0, "cpuTot" : 0, "cpuNow" : 0, "ramNowTot" : 0, "diskNowTot" : 0}
     for host in hosts:
         if host.get("attrs", {}).has_key("ramTot"):
-            hosts_data["nb_ram"] += int(host["attrs"]["ramTot"]["value"])
+            hosts_data["ramTot"] += int(host["attrs"]["ramTot"]["value"])
+        if host.get("attrs", {}).has_key("diskTot"):
+            hosts_data["diskTot"] += int(host["attrs"]["diskTot"]["value"])
+        if host.get("attrs", {}).has_key("cpuTot"):
+            hosts_data["cpuTot"] += int(host["attrs"]["cpuTot"]["value"])
+        if host.get("attrs", {}).has_key("cpuNow"):
+            hosts_data["cpuNow"] += int(host["attrs"]["cpuNow"]["value"])
+        if host.get("attrs", {}).has_key("ramNow"):
+            hosts_data["ramNowTot"] += int(host["attrs"]["ramNow"]["value"])
+        if host.get("attrs", {}).has_key("diskNow"):
+            hosts_data["diskNowTot"] += int(host["attrs"]["diskNow"]["value"])
     return hosts_data
 
 #Argument management
