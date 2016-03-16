@@ -100,12 +100,12 @@ def get_token_from_response(response):
 @app.error(404)
 def error404(error):
     response.content_type = 'application/json'
-    return {'Request not found'}
+    return json.dumps({"ERROR" : "NOT_FOUND"})
 
 @app.error(401)
 def error401(error):
     response.content_type = 'application/json'
-    return {"Error" : "UNAUTHORIZED"}
+    return json.dumps({"Error" : "UNAUTHORIZED"})
 '''
 Return the url and port of monitoring to which forward the request.
 If the regionId has old monitoring return the old monitoring url,
@@ -194,6 +194,8 @@ def get_region(mongodb, regionid="ID of the region"):
         region = get_region_from_mongo(mongodb=mongodb, regionid=regionid)
         if region is not None:
             return region
+        else:
+            abort(404)
     else:
         return make_request("/monitoring/regions/" + regionid, request=request, regionid=regionid)
 
