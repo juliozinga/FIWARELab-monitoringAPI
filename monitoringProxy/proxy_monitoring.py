@@ -121,7 +121,7 @@ Return True if region use new monitoring system false otherwise
 '''
 def is_region_new(regionid):
     try:
-        if str2bool( app.config["regionNew"][regionid.lower()] ):
+        if str2bool( app.config["regionNew"][regionid] ):
             return True
     except KeyError as e:
         print "Region id not found in configuration file: " + str(type(e)) + " " + str(e)
@@ -169,6 +169,8 @@ in the form: "?since=12345&key=value"
 '''
 def options_from_request(request):
     options = ""
+    if request is None:
+        return options
     option_map = map_from_request(request)
     if len(option_map) != 0:
         options += "?"
@@ -346,7 +348,7 @@ region_entity = {
   "power_consumption": ""
 }
 
-base_dic_all_regions = {
+regions_entity = {
   "_links": {
     "self": {
       "href": ""
@@ -386,33 +388,75 @@ all_region_parameters_mapping = {
   "total_ip": "ipTot"}
 
 def get_all_regions_from_mongo(mongodb, mongodbOld):
-    result_new = mongodb[app.config["mongodbOld"]["collectionname"]].find({"_id.type": "region"})
 
-    region_list = []
-    for region in result_new:
-        region_id = region["_id"]["id"]
-        region_entity["_links"]["self"]["href"] = "/monitoring/regions/" + region_id
-        region_entity["id"] = region_id
-        base_dic_all_regions["_embedded"]["regions"].append(copy.deepcopy(region_entity))
-        region_list.append(region_id)
+    conf_regions = app.config["regionNew"]
+    region_list = {}
 
-    result_old = mongodb[app.config["mongodb"]["collectionname"]].find({"_id.type": "region"})
-    for region in result_old:
-        if region["_id"]["id"] not in region_list:
-            region_id = region["_id"]["id"]
-            region_entity["_links"]["self"]["href"] = "/monitoring/regions/" + region_id
-            base_dic_all_regions["_embedded"]["regions"].append(region_entity)
-            region_list.append(region_id)
-        # else:
-        #     print region["_id"]["id"] + " already present"
+    for region_id,is_new in conf_regions.iteritems():
+        if str2bool(is_new):
+            region = get_region_from_mongo(mongodb,region_id)
+            if region is not None:
+                region_list[region_id] = region
+        elif not str2bool(is_new):
+            response = make_request("/monitoring/regions/" + region_id, request=None, regionid=region_id)
+            if response.getcode() == 200:
+                region_list[region_id] = json.loads(response.read())
 
-    for regionid in region_list:
-        region_info = get_region_from_mongo(mongodb, regionid)
-        if region_info is not None:
-            for attribute in all_region_parameters_mapping.iteritems():
-                base_dic_all_regions[attribute(0)] = base_dic_all_regions[attribute(0)] + attribute(1)
 
-    return base_dic_all_regions
+    # region_entity_list = []
+    for region in region_list.iteritems():
+        region = region[1]
+        region_item = {"id": {}, "_links": {"self" : {"href" : {}} } }
+        region_item["id"] = region["id"]
+        region_item["_links"]["self"]["href"] = "/monitoring/regions/" + region["id"]
+        regions_entity["_embedded"]["regions"].append(copy.deepcopy(region_item))
+
+
+    regions_tmp = json.loads(make_request("/monitoring/regions", request=None).read())
+    # import ipdb; ipdb.set_trace()
+    regions_entity["basicUsers"] = regions_tmp["basicUsers"]
+    regions_entity["trialUsers"] = regions_tmp["trialUsers"]
+    regions_entity["communityUsers"] = regions_tmp["communityUsers"]
+    regions_entity["totalUsers"] = regions_tmp["totalUsers"]
+    regions_entity["total_nb_users"] = regions_tmp["total_nb_users"]
+    regions_entity["totalCloudOrganizations"] = regions_tmp["totalCloudOrganizations"]
+    regions_entity["totalUserOrganizations"] = regions_tmp["totalUserOrganizations"]
+    regions_entity["total_nb_organizations"] = regions_tmp["total_nb_organizations"]
+
+
+    # result_new = mongodb[app.config["mongodb"]["collectionname"]].find({"_id.type": "region"})
+    # region_list = []
+    # for region in result_new:
+    #     region_id = region["_id"]["id"]
+    #     region_entity["_links"]["self"]["href"] = "/monitoring/regions/" + region_id
+    #     region_entity["id"] = region_id
+    #     base_dic_all_regions["_embedded"]["regions"].append(copy.deepcopy(region_entity))
+    #     region_list.append(region_id)
+
+    # result_old = mongodbOld[app.config["mongodbOld"]["collectionname"]].find({"_id.type": "region"})
+    # for region in result_old:
+    #     if region["_id"]["id"] not in region_list:
+    #         region_id = region["_id"]["id"]
+    #         region_entity["_links"]["self"]["href"] = "/monitoring/regions/" + region_id
+    #         region_entity["id"] = region_id
+    #         base_dic_all_regions["_embedded"]["regions"].append(region_entity)
+    #         region_list.append(region_id)
+    #     # else:
+    #     #     print region["_id"]["id"] + " already present"
+
+    # for regionid in region_list:
+    #     region_info = get_region_from_mongo(mongodb, regionid)
+    #     if region_info is not None:
+    #         for attribute in all_region_parameters_mapping.iteritems():
+    #             base_dic_all_regions[attribute[0]] = base_dic_all_regions[attribute[0]] + attribute[1]
+
+
+# for regionid in region_list:
+#         region_info = get_region_from_mongo(mongodb, regionid)
+#         if region_info is not None:
+#             for k,v in all_region_parameters_mapping.iteritems():
+#                 base_dic_all_regions[k] = base_dic_all_regions[k] + v
+    return regions_entity
 
 
 '''
@@ -579,7 +623,6 @@ If app is passed load map also in the app
 def config_to_dict(section_list, config, app=None):
     if not isinstance(section_list, (list)):
         print "section_list must be a list"
-
     result_map = {}
     for item in section_list:
         item_map = dict(config._sections[item])
@@ -603,6 +646,7 @@ def main():
     #Read config file
     try:
         Config = ConfigParser.ConfigParser()
+        Config.optionxform=str
         Config.read(config_file)
     except Exception as e:
         print("Problem with config file: {}").format(e)
