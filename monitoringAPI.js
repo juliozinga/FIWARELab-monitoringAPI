@@ -2217,6 +2217,10 @@ function getServiceRegion(res, statusType, authToken, regionId){
     if (services && !(err)){
       new Date().getTime();
       now=(Math.floor(Date.now() / 1000));
+      if (!Array.isArray(regionInfo.attrs)) {
+		arr = valuesToArray(regionInfo.attrs);
+		regionInfo.attrs = arr;
+      }
       for (l in regionInfo.attrs){
 	 if (regionInfo.attrs[l].name.indexOf("sanity") != -1){
 	   if (regionInfo.attrs[l].name == "sanity_check_timestamp"){
@@ -2244,6 +2248,10 @@ function getServiceRegion(res, statusType, authToken, regionId){
 	  if ((service._id.id).split(':')[2])
 	    service_id=(service._id.id).split(':')[2]
 	  /*starts to group info*/
+	  if (!Array.isArray(service.attrs)) {
+		arr = valuesToArray(service.attrs);
+		service.attrs = arr;
+      }
 	  if(service_id && service.attrs[0].value){
 	    servVal=service.attrs[0].value;
 	    servTot++;
@@ -2875,4 +2883,15 @@ function getTokenHeader (headers) {
     authToken = extractBearerAccessToken(headers['authorization']);
   }
   return authToken;
+}
+/**
+ * Convert an object into an array
+ * @param {Object} obj
+ * @return {Array} arr
+ */
+function valuesToArray(obj) {
+  return Object.keys(obj).map(function (key) {
+	obj[key].name = key;
+	return obj[key];
+  });
 }
