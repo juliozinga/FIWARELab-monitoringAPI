@@ -140,7 +140,6 @@ def make_request(request_url, request, regionid=None):
     url_request = base_url + request_url + options_from_request(request)
     req = urllib2.Request(url_request)
     token_map = get_token_from_response(request)
-    import ipdb; ipdb.set_trace()
     if bool(token_map):
         req.headers[ token_map.iteritems().next()[0] ] = token_map.iteritems().next()[1]
     try:
@@ -340,10 +339,10 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
     }
 
 
-    conf_regions = app.config["regionNew"]
+    new_regions = app.config["regionNew"]
     region_list = {}
 
-    for region_id,is_new in conf_regions.iteritems():
+    for region_id,is_new in new_regions.iteritems():
         if str2bool(is_new):
             region = get_region_from_mongo(mongodb,region_id)
             if region is not None:
@@ -361,6 +360,20 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
         region_item["id"] = region["id"]
         region_item["_links"]["self"]["href"] = "/monitoring/regions/" + region["id"]
         regions_entity["_embedded"]["regions"].append(copy.deepcopy(region_item))
+        # sum resources form each region entity
+        # import ipdb; ipdb.set_trace()
+        if region["nb_cores"] != '':
+            regions_entity["total_nb_cores"] += int(region["nb_cores"])
+            regions_entity["total_nb_cores_enabled"] += int(region["nb_cores"])
+        if region["nb_ram"] != '':
+            regions_entity["total_nb_ram"] += int(region["nb_ram"])
+        if region["nb_disk"] != '':
+            regions_entity["total_nb_disk"] += int(region["nb_disk"])
+        if region["nb_vm"] != '':
+            regions_entity["total_nb_vm"] += int(region["nb_vm"])
+
+        # regions_entity["total_nb_cores"] += region["total_nb_cores"]
+        # regions_entity["total_nb_cores"] += region["total_nb_cores"]
 
 
     regions_tmp = json.loads(make_request("/monitoring/regions", request=None).read())
@@ -373,7 +386,6 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
     regions_entity["totalCloudOrganizations"] = regions_tmp["totalCloudOrganizations"]
     regions_entity["totalUserOrganizations"] = regions_tmp["totalUserOrganizations"]
     regions_entity["total_nb_organizations"] = regions_tmp["total_nb_organizations"]
-
     return regions_entity
 
 
