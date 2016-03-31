@@ -2255,45 +2255,50 @@ function getServiceRegion(res, statusType, authToken, regionId){
 	  if(service_id && service.attrs[0].value){
 	    servVal=service.attrs[0].value;
 	    servTot++;
-	    if (servVal==1){
+	    if (servVal > 0){
 	      servActive++;
 	    }
 /*Nova service*/
 	    if (service_id.indexOf("nova") != -1){
 	      novaTot++;
-	      if (servVal==1)novaActive++;
+	      if (servVal > 0)novaActive++;
 	    }
 /*Cinder service*/
 	    else if (service_id.indexOf("cinder") != -1){
 	      cinderTot++;
-	      if (servVal==1)cinderActive++;
+	      if (servVal > 0)cinderActive++;
 	    }
 
 /*Glance*/
 	    else if (service_id.indexOf("glance") != -1){
 	      glanceTot++;
-	      if (servVal==1)glanceActive++;
+	      if (servVal > 0)glanceActive++;
 	    }
 /*Quantum service*/
 	    else if (service_id.indexOf("quantum") != -1){
 	      if (service_id.indexOf("quantum-l3-agent") != -1){
 		if (qL3==0)quantumTot++;
 		qL3++;
-		if (servVal==1)qL3Status=1;
+		if (servVal > 0)qL3Status=1;
 	      }
 	      else if(service_id.indexOf("quantum-dhcp-agent") != -1){
 		if (qDhcp==0)quantumTot++;
 		qDhcp++;
-		if (servVal==1)qDhcpStatus=1;
+		if (servVal > 0)qDhcpStatus=1;
 	      }
 	      else if ((service_id.indexOf("quantum-dhcp-agent") == -1) && (service_id.indexOf("quantum-l3-agent") == -1) ){
 		quantumTot++;
-		if (servVal==1)quantumActive++;
+		if (servVal > 0)quantumActive++;
 	      }
+	    }
+	    else if (service_id.indexOf("neutron") != -1){
+			quantumTot++;
+			if (servVal > 0)quantumActive++;
+
 	    }
 	    else if (service_id.indexOf("keystone-proxy") != -1){
 	      kpTot++;
-	      if (servVal==1)kpActive++;
+	      if (servVal > 0)kpActive++;
 	    }
 	  }
 	}
