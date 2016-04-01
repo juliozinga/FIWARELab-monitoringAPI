@@ -18,6 +18,8 @@ import bottle_mysql
 import base64
 import cookielib
 import urllib
+import copy
+import decimal
 
 ###Main bottle app
 app = Bottle()
@@ -33,7 +35,7 @@ def is_idm_authorized(auth_url, token_map):
         elif "Authorization" in token_map:
             token_string = base64.b64decode(token_map["Authorization"].split(" ")[1])
         else:
-            raise Exception('Header not known') 
+            raise Exception('Header not known')
     except Exception as e:
         print "Error in decoding token: " + str(e)
         return False
@@ -99,25 +101,34 @@ def get_token_from_response(response):
 @app.error(404)
 def error404(error):
     response.content_type = 'application/json'
-    return {'Request not found'}
+    return json.dumps({"ERROR" : "NOT_FOUND"})
 
 @app.error(401)
 def error401(error):
     response.content_type = 'application/json'
-    return {"Error" : "UNAUTHORIZED"}
+    return json.dumps({"Error" : "UNAUTHORIZED"})
 '''
 Return the url and port of monitoring to which forward the request.
 If the regionId has old monitoring return the old monitoring url,
 If the region has new monitoring return the new one
 '''
 def select_monitoring_to_forward(regionid):
+    if is_region_new(regionid):
+        return app.config["newmonitoring"]["url"], app.config["newmonitoring"]["port"]
+    else:
+        return  app.config["oldmonitoring"]["url"], app.config["oldmonitoring"]["port"]
+'''
+Return True if region use new monitoring system false otherwise
+'''
+def is_region_new(regionid):
     try:
-        if str2bool( app.config["regionNew"][regionid.lower()] ):
-            return app.config["newmonitoring"]["url"], app.config["newmonitoring"]["port"]
+        if str2bool( app.config["regionNew"][regionid] ):
+            return True
     except KeyError as e:
         print "Region id not found in configuration file: " + str(type(e)) + " " + str(e)
         pass
-    return  app.config["oldmonitoring"]["url"], app.config["oldmonitoring"]["port"]
+    return False
+
 'regionNew'
 '''
 Make the request to old monitoring api
@@ -130,7 +141,6 @@ def make_request(request_url, request, regionid=None):
     url_request = base_url + request_url + options_from_request(request)
     req = urllib2.Request(url_request)
     token_map = get_token_from_response(request)
-
     if bool(token_map):
         req.headers[ token_map.iteritems().next()[0] ] = token_map.iteritems().next()[1]
     try:
@@ -159,6 +169,8 @@ in the form: "?since=12345&key=value"
 '''
 def options_from_request(request):
     options = ""
+    if request is None:
+        return options
     option_map = map_from_request(request)
     if len(option_map) != 0:
         options += "?"
@@ -172,13 +184,22 @@ def root():
 
 @app.route('/monitoring/regions', method='GET')
 @app.route('/monitoring/regions/', method='GET')
-def get_all_regions():
-    return json.dumps(make_request("/monitoring/regions", request=request))
+def get_all_regions(mongodb, mongodbOld):
+    all_regions = get_all_regions_from_mongo(mongodb=mongodb, mongodbOld=mongodbOld)
+    return json.dumps(all_regions)
+    #return json.dumps(make_request("/monitoring/regions", request=request))
 
 @app.route('/monitoring/regions/<regionid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/', method='GET')
-def get_region(regionid="ID of the region"):
-    return make_request("/monitoring/regions/" + regionid, request=request, regionid=regionid)
+def get_region(mongodb, regionid="ID of the region"):
+    if is_region_new(regionid):
+        region = get_region_from_mongo(mongodb=mongodb, regionid=regionid)
+        if region is not None:
+            return region
+        else:
+            abort(404)
+    else:
+        return make_request("/monitoring/regions/" + regionid, request=request, regionid=regionid)
 
 @app.route('/monitoring/regions/<regionid>/services', method='GET')
 @app.route('/monitoring/regions/<regionid>/services/', method='GET')
@@ -274,10 +295,104 @@ base_dict_list = {
         "id": ""
     }
 
+
+
+
+all_region_parameters_mapping = {
+  "total_nb_cores": "nb_cores",
+  "total_nb_cores_enabled": "nb_cores_enabled",
+  "total_nb_ram": "nb_ram",
+  "total_nb_disk": "nb_disk",
+  "total_nb_vm": "nb_vm",
+  "total_ip_assigned": "ipAssigned",
+  "total_ip_allocated": "ipAllocated",
+  "total_ip": "ipTot"}
+
+def get_all_regions_from_mongo(mongodb, mongodbOld):
+
+    regions_entity = {
+      "_links": {
+        "self": {
+          "href": "/monitoring/regions"
+        }
+      },
+      "_embedded": {
+        "regions": [
+        ]
+      },
+      "basicUsers": 0,
+      "trialUsers": 0,
+      "communityUsers": 0,
+      "totalUsers": 0,
+      "total_nb_users": 0,
+      "totalCloudOrganizations": 0,
+      "totalUserOrganizations": 0,
+      "total_nb_organizations": 0,
+      #
+      "total_nb_cores": 0,
+      "total_nb_cores_enabled": 0,
+      "total_nb_ram": 0,
+      "total_nb_disk": 0,
+      "total_nb_vm": 0,
+      "total_ip_assigned": 0,
+      "total_ip_allocated": 0,
+      "total_ip": 0
+    }
+
+
+    new_regions = app.config["regionNew"]
+    region_list = {}
+
+    for region_id,is_new in new_regions.iteritems():
+        if str2bool(is_new):
+            region = get_region_from_mongo(mongodb,region_id)
+            if region is not None:
+                region_list[region_id] = region
+        elif not str2bool(is_new):
+            response = make_request("/monitoring/regions/" + region_id, request=None, regionid=region_id)
+            if response.getcode() == 200:
+                region_list[region_id] = json.loads(response.read())
+
+    for region in region_list.iteritems():
+        region = region[1]
+        region_item = {"id": {}, "_links": {"self" : {"href" : {}} } }
+        region_item["id"] = region["id"]
+        region_item["_links"]["self"]["href"] = "/monitoring/regions/" + region["id"]
+        regions_entity["_embedded"]["regions"].append(copy.deepcopy(region_item))
+        # sum resources form each region entity
+        if region["nb_cores"] != '':
+            regions_entity["total_nb_cores"] += int(region["nb_cores"])
+            regions_entity["total_nb_cores_enabled"] += int(region["nb_cores"])
+        if region["nb_ram"] != '':
+            regions_entity["total_nb_ram"] += int(region["nb_ram"])
+        if region["nb_disk"] != '':
+            regions_entity["total_nb_disk"] += int(region["nb_disk"])
+        if region["nb_vm"] != '':
+            regions_entity["total_nb_vm"] += int(region["nb_vm"])
+        if region["measures"][0]["ipAssigned"] != '':
+            regions_entity["total_ip_assigned"] += int(decimal.Decimal(region["measures"][0]["ipAssigned"]).normalize())
+        if region["measures"][0]["ipAllocated"] != '':
+            regions_entity["total_ip_allocated"] += int(decimal.Decimal(region["measures"][0]["ipAllocated"]).normalize())
+        if region["measures"][0]["ipTot"] != '':
+            regions_entity["total_ip"] += int(decimal.Decimal(region["measures"][0]["ipTot"]).normalize())
+
+    # get IDM infos from oldMonitoring
+    regions_tmp = json.loads(make_request("/monitoring/regions", request=None).read())
+    regions_entity["basicUsers"] = regions_tmp["basicUsers"]
+    regions_entity["trialUsers"] = regions_tmp["trialUsers"]
+    regions_entity["communityUsers"] = regions_tmp["communityUsers"]
+    regions_entity["totalUsers"] = regions_tmp["totalUsers"]
+    regions_entity["total_nb_users"] = regions_tmp["total_nb_users"]
+    regions_entity["totalCloudOrganizations"] = regions_tmp["totalCloudOrganizations"]
+    regions_entity["totalUserOrganizations"] = regions_tmp["totalUserOrganizations"]
+    regions_entity["total_nb_organizations"] = regions_tmp["total_nb_organizations"]
+    return regions_entity
+
+
 '''
 mongodb is the local mongodb bottle plugin
 filter_region should be the region name, used to filter the images.
-If no filter_region append all region... 
+If no filter_region append all region...
 '''
 def get_all_images_from_mongo(mongodb, filter_region=None):
     result = mongodb[app.config["mongodb"]["collectionname"]].find({"_id.type":"image"})
@@ -301,6 +416,147 @@ def get_image_from_mongo(mongodb, imageid, regionid):
     for image in result:
         result_dict["details"].append(image)
     return result_dict
+
+def get_region_from_mongo(mongodb, regionid):
+    region_entity = {
+      "_links": {
+        "self": {
+          "href": ""
+        },
+        "hosts": {
+          "href": ""
+        }
+      },
+      "measures": [
+        {
+          "timestamp": "",
+          "ipAssigned": "",
+          "ipAllocated": "",
+          "ipTot": "",
+          "nb_cores_used": 0,
+          # "nb_cores_enabled": 0,
+          "nb_cores": 0,
+          "nb_disk": 0,
+          "nb_ram": 0,
+          "nb_vm": 0,
+          "ram_allocation_ratio": "",
+          "cpu_allocation_ratio": "",
+          "percRAMUsed": 0,
+          "percDiskUsed": 0
+        }
+      ],
+      "id": "",
+      "name": "",
+      "country": "",
+      "latitude": "",
+      "longitude": "",
+      "nb_cores": 0,
+      # "nb_cores_enabled": 0,
+      "nb_cores_used": 0,
+      "nb_ram": 0,
+      "nb_disk": 0,
+      "nb_vm": 0,
+      "power_consumption": ""
+    }
+    # get sul mongo della entity region
+    regions = mongodb[app.config["mongodb"]["collectionname"]].find({"_id.type":"region"})
+    for region in regions:
+        if regionid is not None and region["_id"]["id"] == regionid:
+
+            region_entity["_links"]["self"]["href"] = "/monitoring/regions/" + regionid
+            region_entity["_links"]["hosts"]["href"] = "/monitoring/regions/" + regionid + "/hosts"
+            region_entity["measures"][0]["timestamp"] = region["modDate"]
+            region_entity["measures"][0]["ipAssigned"] = region["attrs"]["ipUsed"]["value"]
+            region_entity["measures"][0]["ipAllocated"] = region["attrs"]["ipAvailable"]["value"]
+            region_entity["measures"][0]["ipTot"] = region["attrs"]["ipTot"]["value"]
+
+            region_entity["measures"][0]["ram_allocation_ratio"] = region["attrs"]["ram_allocation_ratio"]["value"]
+            region_entity["measures"][0]["cpu_allocation_ratio"] = region["attrs"]["cpu_allocation_ratio"]["value"]
+
+            region_entity["id"] = region["_id"]["id"]
+            region_entity["name"] = region["_id"]["id"]
+            region_entity["country"] = region["attrs"]["location"]["value"]
+            region_entity["latitude"] = region["attrs"]["latitude"]["value"]
+            region_entity["longitude"] = region["attrs"]["longitude"]["value"]
+            region_entity["longitude"] = region["attrs"]["longitude"]["value"]
+
+            # aggragation from virtual machines on region
+            vms = get_cursor_active_vms_from_mongo(mongodb, regionid)
+            if vms is not None:
+                vms_data = aggr_vms_data(vms)
+                region_entity["measures"][0]["nb_vm"] = vms_data["nb_vm"]
+                region_entity["nb_vm"] = vms_data["nb_vm"]
+
+            # aggragation from hosts on region
+            hosts = get_cursor_hosts_from_mongo(mongodb, regionid)
+            if hosts is not None:
+                hosts_data = aggr_hosts_data(hosts)
+                region_entity["nb_ram"] = hosts_data["ramTot"]
+                region_entity["measures"][0]["nb_ram"] = hosts_data["ramTot"]
+                region_entity["nb_disk"] = hosts_data["diskTot"]
+                region_entity["measures"][0]["nb_disk"] = hosts_data["diskTot"]
+                region_entity["nb_cores"] = hosts_data["cpuTot"]
+                region_entity["measures"][0]["nb_cores"] = hosts_data["cpuTot"]
+                region_entity["nb_cores_used"] = hosts_data["cpuNow"]
+                region_entity["measures"][0]["nb_cores_used"] = hosts_data["cpuNow"]
+                region_entity["measures"][0]["percRAMUsed"] = 0
+                region_entity["measures"][0]["percDiskUsed"] = 0
+                if hosts_data["ramTot"] != 0:
+                    region_entity["measures"][0]["percRAMUsed"] = hosts_data["ramNowTot"]/(hosts_data["ramTot"] * float(region["attrs"]["ram_allocation_ratio"]["value"]))
+                if hosts_data["diskTot"] != 0:
+                    region_entity["measures"][0]["percDiskUsed"] = hosts_data["diskNowTot"]/hosts_data["diskTot"]
+        else:
+            return None
+        return region_entity
+
+def get_cursor_vms_from_mongo(mongodb, regionid):
+    vms = mongodb[app.config["mongodb"]["collectionname"]].find({"$and": [{"_id.type": "vm" }, {"_id.id": {"$regex" : regionid+':'}}] })
+    if vms.count() >= 1:
+        return vms
+    else:
+        return None
+
+def get_cursor_active_vms_from_mongo(mongodb, regionid):
+    vms = mongodb[app.config["mongodb"]["collectionname"]].find({"$and": [{"_id.type": "vm" }, {"_id.id": {"$regex" : regionid+':'}}, {"attrs.status.value" : "active"}] })
+    if vms.count() >= 1:
+        return vms
+    else:
+        return None
+
+def get_cursor_hosts_from_mongo(mongodb, regionid):
+    hosts = mongodb[app.config["mongodb"]["collectionname"]].find({"$and": [{"_id.type": "host" }, {"_id.id": {"$regex" : regionid+':'}}] })
+    if hosts.count() >= 1:
+        return hosts
+    else:
+        return None
+
+def aggr_vms_data(vms):
+    """
+    Function that aggregate vm entity data given a collection (cursor retuned from mongo query) of vms
+    """
+    vms_data = {"nb_vm" : 0}
+    vms_data["nb_vm"] = vms.count()
+    return vms_data
+
+def aggr_hosts_data(hosts):
+    """
+    Function that aggregate host entity data given a collection (cursor retuned from mongo query) of hosts
+    """
+    hosts_data = {"ramTot" : 0, "diskTot" : 0, "cpuTot" : 0, "cpuNow" : 0, "ramNowTot" : 0, "diskNowTot" : 0}
+    for host in hosts:
+        if host.get("attrs", {}).has_key("ramTot"):
+            hosts_data["ramTot"] += int(host["attrs"]["ramTot"]["value"])
+        if host.get("attrs", {}).has_key("diskTot"):
+            hosts_data["diskTot"] += int(host["attrs"]["diskTot"]["value"])
+        if host.get("attrs", {}).has_key("cpuTot"):
+            hosts_data["cpuTot"] += int(host["attrs"]["cpuTot"]["value"])
+        if host.get("attrs", {}).has_key("cpuNow"):
+            hosts_data["cpuNow"] += int(host["attrs"]["cpuNow"]["value"])
+        if host.get("attrs", {}).has_key("ramNow"):
+            hosts_data["ramNowTot"] += int(host["attrs"]["ramNow"]["value"])
+        if host.get("attrs", {}).has_key("diskNow"):
+            hosts_data["diskNowTot"] += int(host["attrs"]["diskNow"]["value"])
+    return hosts_data
 
 #Argument management
 def arg_parser():
@@ -337,7 +593,6 @@ If app is passed load map also in the app
 def config_to_dict(section_list, config, app=None):
     if not isinstance(section_list, (list)):
         print "section_list must be a list"
-
     result_map = {}
     for item in section_list:
         item_map = dict(config._sections[item])
@@ -346,7 +601,7 @@ def config_to_dict(section_list, config, app=None):
         result_map[item] = item_map
         if app:
             app.config[item] = item_map
-    
+
     return result_map
 
 #Main function
@@ -361,6 +616,7 @@ def main():
     #Read config file
     try:
         Config = ConfigParser.ConfigParser()
+        Config.optionxform=str
         Config.read(config_file)
     except Exception as e:
         print("Problem with config file: {}").format(e)
@@ -388,7 +644,7 @@ def main():
 
     listen_url = config_map['api']['listen_url']
     listen_port = config_map['api']['listen_port']
-    
+
     #App runs in infinite loop
     httpserver.serve(app, host=listen_url, port=listen_port)
 
