@@ -138,8 +138,11 @@ return empty array if error
 def make_request(request_url, request, regionid=None):
     monitoring_url, monitoring_port = select_monitoring_to_forward(regionid)
     base_url = "http://" + monitoring_url + ":" + monitoring_port
-    url_request = base_url + request_url + options_from_request(request)
-    req = urllib2.Request(url_request)
+    if request is None:
+        uri = base_url + request_url
+    else:
+        uri = base_url + request_url + "?" + request.query_string
+    req = urllib2.Request(uri)
     token_map = get_token_from_response(request)
     if bool(token_map):
         req.headers[ token_map.iteritems().next()[0] ] = token_map.iteritems().next()[1]
@@ -150,33 +153,6 @@ def make_request(request_url, request, regionid=None):
     response.status = my_response.getcode()
     response.set_header("Content-Type", my_response.info().getheader("Content-Type"))
     return my_response
-
-'''
-Given an API request return a map with the option after '?'
-in the url
-'''
-def map_from_request(request):
-    avaible_options = ["since", "h"]
-    map = {}
-    for i in avaible_options:
-        if request.query.getone(i) is not None:
-            map[i] = request.query.getone(i)
-    return map
-
-'''
-Given an API request return a string to be used as options,
-in the form: "?since=12345&key=value"
-'''
-def options_from_request(request):
-    options = ""
-    if request is None:
-        return options
-    option_map = map_from_request(request)
-    if len(option_map) != 0:
-        options += "?"
-        for item in option_map.iteritems():
-            options += ( item[0] + "=" + item[1] + "&" )
-    return options
 
 @app.route('/')
 def root():
@@ -460,6 +436,7 @@ def get_region_from_mongo(mongodb, regionid):
     }
     # get sul mongo della entity region
     regions = mongodb[app.config["mongodb"]["collectionname"]].find({"_id.type":"region"})
+    if regions is None: return None
     for region in regions:
         if regionid is not None and region["_id"]["id"] == regionid:
 
