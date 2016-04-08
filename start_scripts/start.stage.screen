@@ -1,0 +1,13 @@
+sessionname monitoring-staging
+autodetach on
+startup_message off
+hardstatus alwayslastline
+hardstatus string '%{gk}[%{wk}%?%-Lw%?%{=b kR}(%{W}%n*%f %t%?(%u)%?%{=b kR})%{= w}%?%+Lw%?%? %{g}][%{d}%l%{g}][ %{= w}%Y/%m/%d %0C:%s%a%{g} ]%{W}'
+#setenv PROMPT_COMMAND /bin/true
+screen -t monitoringProxy_11030 bash
+stuff "workon monitoringStaging^M"
+stuff "cd .. && python monitoringProxy/proxy_monitoring.py -c monitoringProxy/config-password.ini^M"
+screen -t nodeJsMongoOld_11031 bash
+stuff "cd .. && node nodeJS/monitoringAPI.js nodeJS/api-MongoOld.cfg^M"
+screen -t nodeJsMongoNew_11032 bash
+stuff "cd .. && node nodeJS/monitoringAPI.js nodeJS/api-MongoNew.cfg^M"
