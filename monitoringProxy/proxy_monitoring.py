@@ -612,6 +612,7 @@ def main():
     mongo_map.pop("collectionname", None)
     mongo_plugin = MongoPlugin(**mongo_map)
     mongo_plugin_old = MongoPlugin(**mongo_old_map)
+    config_map["mysql"]["dbport"] = int(config_map["mysql"]["dbport"])
     mysql_plugin = bottle_mysql.Plugin(**config_map["mysql"])
 
     app.install(mongo_plugin)
