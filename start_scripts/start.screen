@@ -1,0 +1,15 @@
+sessionname monitoring-prod
+autodetach on
+startup_message off
+hardstatus alwayslastline
+hardstatus string '%{gk}[%{wk}%?%-Lw%?%{=b kR}(%{W}%n*%f %t%?(%u)%?%{=b kR})%{= w}%?%+Lw%?%? %{g}][%{d}%l%{g}][ %{= w}%Y/%m/%d %0C:%s%a%{g} ]%{W}'
+#setenv PROMPT_COMMAND /bin/true
+screen -t monitoringProxy_11027 bash
+stuff "workon monitoringProd^M"
+stuff "cd .. && python monitoringProxy/proxy_monitoring.py -c monitoringProxy/config-password.ini^M"
+screen -t nodeJsMongoOld_11026 bash
+stuff "cd .. && node nodeJS/monitoringAPI.js nodeJS/api-MongoOld.cfg^M"
+screen -t nodeJsMongoNew_11025 bash
+stuff "cd .. && node nodeJS/monitoringAPI.js nodeJS/api-MongoNew.cfg^M"
+screen -t pepProxy_11028 bash
+stuff "cd .. && node /usr/local/monitoring/pep-proxy2/pep-proxy2.js^M"
