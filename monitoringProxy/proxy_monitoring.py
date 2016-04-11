@@ -584,7 +584,7 @@ def aggr_hosts_data(hosts):
 
 #Argument management
 def arg_parser():
-    parser = argparse.ArgumentParser(description='Monitoring python version')
+    parser = argparse.ArgumentParser(description='Monitoring proxy')
     parser.add_argument("-c", "--config-file", help="Config file", required=False)
     return parser.parse_args()
 
@@ -638,12 +638,15 @@ def main():
         config_file = "config.ini"
 
     #Read config file
+    if not os.path.isfile(config_file):
+        print("Configuration file not found: {}").format(config_file)
+        sys.exit(-1)
     try:
         Config = ConfigParser.ConfigParser()
         Config.optionxform=str
         Config.read(config_file)
     except Exception as e:
-        print("Problem with config file: {}").format(e)
+        print("Problem parsing config file: {}").format(e)
         sys.exit(-1)
 
     #Get a map with config declared in SECTION_TO_LOAD and insert it in bottle app
