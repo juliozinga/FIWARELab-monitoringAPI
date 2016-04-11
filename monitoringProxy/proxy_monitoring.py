@@ -20,6 +20,7 @@ import cookielib
 import urllib
 import copy
 import decimal
+import os
 
 ###Main bottle app
 app = Bottle()
@@ -121,15 +122,22 @@ def select_monitoring_to_forward(regionid):
 Return True if region use new monitoring system false otherwise
 '''
 def is_region_new(regionid):
-    try:
-        if str2bool( app.config["regionNew"][regionid] ):
-            return True
-    except KeyError as e:
-        print "Region id not found in configuration file: " + str(type(e)) + " " + str(e)
-        pass
+    if is_region_on(regionid) and str2bool( app.config["regionNew"][regionid]):
+        return True
     return False
 
-'regionNew'
+'''
+Return True if region is present (enabled) in configuration file
+'''
+def is_region_on(regionid):
+    if regionid is None:
+        return False
+    if app.config["regionNew"].has_key(regionid):
+        return True
+    else:
+        print "Region id not found in configuration file: " + str(regionid)
+        return False
+
 '''
 Make the request to old monitoring api
 args:   request in the form: "/" or "/monitoring/regions" etc.
@@ -168,6 +176,8 @@ def get_all_regions(mongodb, mongodbOld):
 @app.route('/monitoring/regions/<regionid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/', method='GET')
 def get_region(mongodb, regionid="ID of the region"):
+    if not is_region_on(regionid):
+        abort(404)
     if is_region_new(regionid):
         region = get_region_from_mongo(mongodb=mongodb, regionid=regionid)
         if region is not None:
@@ -180,57 +190,90 @@ def get_region(mongodb, regionid="ID of the region"):
 @app.route('/monitoring/regions/<regionid>/services', method='GET')
 @app.route('/monitoring/regions/<regionid>/services/', method='GET')
 def get_all_services_by_region(db, regionid="ID of the region"):
-    return make_request("/monitoring/regions/" + regionid + "/services", request=request, regionid=regionid)
+    if is_region_on(regionid):
+        return make_request("/monitoring/regions/" + regionid + "/services", request=request, regionid=regionid)
+    else:
+        abort(404)
 
 @app.route('/monitoring/regions/<regionid>/hosts', method='GET')
 @app.route('/monitoring/regions/<regionid>/hosts/', method='GET')
 def get_all_hosts(regionid="ID of the region"):
-    return make_request("/monitoring/regions/" + regionid + "/hosts", request=request, regionid=regionid)
+    if is_region_on(regionid):
+        return make_request("/monitoring/regions/" + regionid + "/hosts", request=request, regionid=regionid)
+    else:
+        abort(404)
 
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>/', method='GET')
 def get_host(regionid="ID of the region", hostid="ID of the host"):
-    return make_request("/monitoring/regions/" + regionid + "/hosts/" + hostid, request=request, regionid=regionid)
+    if is_region_on(regionid):
+        return make_request("/monitoring/regions/" + regionid + "/hosts/" + hostid, request=request, regionid=regionid)
+    else:
+        abort(404)
 
 @app.route('/monitoring/regions/<regionid>/vms', method='GET')
 @app.route('/monitoring/regions/<regionid>/vms/', method='GET')
 def get_all_vms(regionid="ID of the region"):
-    return make_request("/monitoring/regions/" + regionid + "/vms/" , request=request, regionid = regionid)
+    if is_region_on(regionid):
+        return make_request("/monitoring/regions/" + regionid + "/vms/" , request=request, regionid = regionid)
+    else:
+        abort(404)
 
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/', method='GET')
 def get_vm(regionid="ID of the region", vmid="ID of the vm"):
-    return make_request("/monitoring/regions/" + regionid + "/vms/" + vmid, request=request, regionid=regionid)
+    if is_region_on(regionid):
+        return make_request("/monitoring/regions/" + regionid + "/vms/" + vmid, request=request, regionid=regionid)
+    else:
+        abort(404)
 
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>/services', method='GET')
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>/services/', method='GET')
 def get_all_services_by_host(regionid="ID of the region", hostid="ID of the host"):
-    return make_request("/monitoring/regions/" + regionid + "/hosts/" + hostid + "/services", request=request, regionid=regionid)
+    if is_region_on(regionid):
+        return make_request("/monitoring/regions/" + regionid + "/hosts/" + hostid + "/services", request=request, regionid=regionid)
+    else:
+        abort(404)
 
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>/services/<serviceName>', method='GET')
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>/services/<serviceName>/', method='GET')
 def get_service_by_host(regionid="ID of the region", hostid="ID of the host", serviceName="Service name"):
-    return make_request("/monitoring/regions/" + regionid + "/hosts/" + hostid + "/services/" + serviceName , request=request, regionid=regionid)
+    if is_region_on(regionid):
+        return make_request("/monitoring/regions/" + regionid + "/hosts/" + hostid + "/services/" + serviceName , request=request, regionid=regionid)
+    else:
+        abort(404)
 
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/services', method='GET')
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/services/', method='GET')
 def get_all_services_by_vm(regionid="ID of the region", vmid="ID of the vm"):
-    return make_request("/monitoring/regions/" + regionid + "/vms/" + vmid + "/services", request=request, regionid=regionid)
+    if is_region_on(regionid):
+        return make_request("/monitoring/regions/" + regionid + "/vms/" + vmid + "/services", request=request, regionid=regionid)
+    else:
+        abort(404)
 
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/services/<serviceName>', method='GET')
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/services/<serviceName>/', method='GET')
 def get_service_by_vm(regionid="ID of the region", vmid="ID of the vm", serviceName="Service name"):
-    return make_request("/monitoring/regions/" + regionid + "/vms/" + vmid + "services/" + serviceName, request=request, regionid=regionid)
+    if is_region_on(regionid):
+        return make_request("/monitoring/regions/" + regionid + "/vms/" + vmid + "services/" + serviceName, request=request, regionid=regionid)
+    else:
+        abort(404)
 
 @app.route('/monitoring/regions/<regionid>/nes', method='GET')
 @app.route('/monitoring/regions/<regionid>/nes/', method='GET')
 def get_all_nes(regionid="ID of the region"):
-    return make_request("/monitoring/regions/" + regionid + "/nes/", request=request, regionid=regionid)
+    if is_region_on(regionid):
+        return make_request("/monitoring/regions/" + regionid + "/nes/", request=request, regionid=regionid)
+    else:
+        abort(404)
 
 @app.route('/monitoring/regions/<regionid>/nes/<neid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/nes/<neid>/', method='GET')
 def get_ne(regionid="ID of the region", neid="ID of the network"):
-    return make_request("/monitoring/regions/" + regionid + "/nes/" + neid, request=request, regionid=regionid)
+    if is_region_on(regionid):
+        return make_request("/monitoring/regions/" + regionid + "/nes/" + neid, request=request, regionid=regionid)
+    else:
+        abort(404)
 
 @app.route('/monitoring/host2hosts', method='GET')
 @app.route('/monitoring/host2hosts/', method='GET')
@@ -241,6 +284,8 @@ def get_host2hosts():
 @app.route('/monitoring/regions/<regionid>/images', method='GET')
 @app.route('/monitoring/regions/<regionid>/images/', method='GET')
 def get_all_images_by_region(mongodb, regionid="ID of the region"):
+    if not is_region_on(regionid):
+        abort(404)
     if is_idm_authorized( auth_url=app.config["idm"]["account_url"], token_map=get_token_from_response(response) ):
         images = get_all_images_from_mongo(mongodb=mongodb)
     else:
@@ -250,6 +295,8 @@ def get_all_images_by_region(mongodb, regionid="ID of the region"):
 @app.route('/monitoring/regions/<regionid>/images/<imageid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/images/<imageid>/', method='GET')
 def get_image_by_region(mongodb, regionid="ID of the region", imageid="Image id"):
+    if not is_region_on(regionid):
+        abort(404)
     if is_idm_authorized( auth_url=app.config["idm"]["account_url"], token_map=get_token_from_response(response) ):
         image = get_image_from_mongo(mongodb=mongodb, imageid=imageid, regionid=regionid)
     else:
