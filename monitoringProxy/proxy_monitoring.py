@@ -503,7 +503,6 @@ def get_region_from_mongo(mongodb, regionid):
             region_entity["country"] = region["attrs"]["location"]["value"]
             region_entity["latitude"] = region["attrs"]["latitude"]["value"]
             region_entity["longitude"] = region["attrs"]["longitude"]["value"]
-            region_entity["longitude"] = region["attrs"]["longitude"]["value"]
 
             # aggragation from virtual machines on region
             vms = get_cursor_active_vms_from_mongo(mongodb, regionid)
