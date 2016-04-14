@@ -197,19 +197,32 @@ def get_all_services_by_region(db, regionid="ID of the region"):
 
 @app.route('/monitoring/regions/<regionid>/hosts', method='GET')
 @app.route('/monitoring/regions/<regionid>/hosts/', method='GET')
-def get_all_hosts(regionid="ID of the region"):
-    if is_region_on(regionid):
-        return make_request("/monitoring/regions/" + regionid + "/hosts", request=request, regionid=regionid)
-    else:
+def get_all_hosts(mongodb, regionid="ID of the region"):
+    if not is_region_on(regionid):
         abort(404)
+    if is_region_new(regionid):
+        hosts = get_hosts_from_mongo(mongodb=mongodb, regionid=regionid)
+        if hosts is not None:
+            return hosts
+        else:
+            abort(404)
+    else:
+        return make_request("/monitoring/regions/" + regionid + "/hosts", request=request, regionid=regionid)
 
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>/', method='GET')
-def get_host(regionid="ID of the region", hostid="ID of the host"):
-    if is_region_on(regionid):
-        return make_request("/monitoring/regions/" + regionid + "/hosts/" + hostid, request=request, regionid=regionid)
-    else:
+def get_host(mongodb, regionid="ID of the region", hostid="ID of the host"):
+    if not is_region_on(regionid):
         abort(404)
+    if is_region_new(regionid):
+        region = get_doc_region_from_mongo(mongodb, regionid)
+        host = get_host_from_mongo(mongodb, region, hostid)
+        if host is not None:
+            return host
+        else:
+            abort(404)
+    else:
+        return make_request("/monitoring/regions/" + regionid + "/hosts/" + hostid, request=request, regionid=regionid)
 
 @app.route('/monitoring/regions/<regionid>/vms', method='GET')
 @app.route('/monitoring/regions/<regionid>/vms/', method='GET')
@@ -533,6 +546,101 @@ def get_region_from_mongo(mongodb, regionid):
             return None
         return region_entity
 
+def get_host_from_mongo(mongodb, region, hostid):
+    host_entity = {
+      "_links": {
+        "self": {
+          "href": ""
+        },
+        "services": {
+          "href": ""
+        }
+      },
+      "regionid": "",
+      "hostid": "",
+      "role": "",
+      "ipAddresses": [
+        {
+          "ipAddress": ""
+        }
+      ],
+      "measures": [
+        {
+          "timestamp": "",
+          "percCPULoad": {
+            "value": "",
+            "description": "desc"
+          },
+          "percRAMUsed": {
+            "value": "",
+            "description": "desc"
+          },
+          "percDiskUsed": {
+            "value": "",
+            "description": "desc"
+          },
+          "sysUptime": {
+            "value": "",
+            "description": "desc"
+          },
+          "owd_status": {
+            "value": "",
+            "description": "desc"
+          },
+          "bwd_status": {
+            "value": "",
+            "description": "desc"
+          }
+        }
+      ]
+    }
+
+    regionid = region["_id"]["id"]
+    ram_ratio = region["attrs"]["ram_allocation_ratio"]["value"] if region["attrs"].has_key("ram_allocation_ratio") else false
+    host = get_doc_host_from_mongo(mongodb, regionid, hostid)
+    if host is None:
+        return None
+    else:
+        host_entity["_links"]["self"]["href"] = "/monitoring/regions/" + regionid + "/hosts/" + hostid
+        host_entity["_links"]["services"]["href"] = host_entity["_links"]["self"]["href"] + "/services"
+        host_entity["regionid"] = regionid
+        host_entity["hostid"] = hostid
+        host_entity["role"] = "compute"
+        if host["attrs"].has_key("_timestamp"):
+            host_entity["measures"][0]["timestamp"] = host["attrs"]["_timestamp"]["value"]
+        if host["attrs"].has_key("cpuPct"):
+            cpu_pct = round(float(host["attrs"]["cpuPct"]["value"]),2)
+            host_entity["measures"][0]["percCPULoad"]["value"] = str(cpu_pct)
+        else:
+            del host_entity["measures"][0]["percCPULoad"]
+        if host["attrs"].has_key("ramNow") and host["attrs"].has_key("ramTot") and ram_ratio:
+            ram_used = int(host["attrs"]["ramNow"]["value"])
+            ram_tot = int(host["attrs"]["ramTot"]["value"])
+            ram_pct = round(100 * ram_used / (ram_tot * float(ram_ratio)))
+            host_entity["measures"][0]["percRAMUsed"]["value"] = str(ram_pct)
+        else:
+            del host_entity["measures"][0]["percRAMUsed"]
+        if host["attrs"].has_key("diskNow") and host["attrs"].has_key("diskTot"):
+            disk_used = int(host["attrs"]["diskNow"]["value"])
+            disk_tot = int(host["attrs"]["diskTot"]["value"])
+            host_entity["measures"][0]["percDiskUsed"]["value"] = round((100 * disk_used / disk_tot),2)
+        else:
+            del host_entity["measures"][0]["percDiskUsed"]
+        return host_entity
+
+
+def get_hosts_from_mongo(mongodb, regionid):
+    hosts = get_cursor_hosts_from_mongo(mongodb, regionid)
+    if hosts is None:
+        return None
+    result_dict = {"hosts" :[], "links": { "self": {"href":"/monitoring/regions/" + regionid + "/hosts"} }}
+    for host in hosts:
+        hostid = host["_id"]["id"].split(":")[1]
+        base_dict_list["_links"]["self"]["href"] = "/monitoring/regions/" + regionid + "/hosts/" + hostid
+        base_dict_list["id"] = hostid
+        result_dict["hosts"].append(copy.deepcopy(base_dict_list))
+    return result_dict
+
 def get_cursor_vms_from_mongo(mongodb, regionid):
     vms = mongodb[app.config["mongodb"]["collectionname"]].find({"$and": [{"_id.type": "vm" }, {"_id.id": {"$regex" : regionid+':'}}] })
     if vms.count() >= 1:
@@ -553,6 +661,12 @@ def get_cursor_hosts_from_mongo(mongodb, regionid):
         return hosts
     else:
         return None
+
+def get_doc_host_from_mongo(mongodb, regionid, hostid):
+    return mongodb[app.config["mongodb"]["collectionname"]].find_one({"$and": [{"_id.type": "host" }, {"_id.id": {"$regex" : regionid+':'+hostid}}] })
+
+def get_doc_region_from_mongo(mongodb, regionid):
+    return mongodb[app.config["mongodb"]["collectionname"]].find_one({"$and": [{"_id.type": "region" }, {"_id.id": regionid}]})
 
 def aggr_vms_data(vms):
     """
