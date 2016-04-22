@@ -178,7 +178,7 @@ def get_all_regions(mongodb, mongodbOld):
 def get_region(mongodb, regionid="ID of the region"):
     if not is_region_on(regionid):
         abort(404)
-    if is_region_new(regionid):
+    if is_region_new(regionid) and request.params.getone("since") is None:
         region = get_region_from_mongo(mongodb=mongodb, regionid=regionid)
         if region is not None:
             return region
@@ -214,7 +214,9 @@ def get_all_hosts(mongodb, regionid="ID of the region"):
 def get_host(mongodb, regionid="ID of the region", hostid="ID of the host"):
     if not is_region_on(regionid):
         abort(404)
-    if is_region_new(regionid):
+    if is_region_new(regionid) and request.params.getone("since") is None:
+        if not is_idm_authorized( auth_url=app.config["idm"]["account_url"], token_map=get_token_from_response(request)):
+            abort(401)
         region = get_doc_region_from_mongo(mongodb, regionid)
         host = get_host_from_mongo(mongodb, region, hostid)
         if host is not None:
