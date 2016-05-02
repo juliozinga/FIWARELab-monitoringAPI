@@ -2,3 +2,6 @@
 .settings/
 .tern-project
 node_modules
+.pydevproject
+.idea
+*.iml
