@@ -2861,7 +2861,7 @@ function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue, 
                   arrayBuild[jj].nova += rows[ii].avg_Uptime;
                   arrayBuild[jj].novaC += 1;
                 }
-                if (rows[ii].serviceType.indexOf("quantum") != -1) {
+                if ( (rows[ii].serviceType.indexOf("quantum") != -1) || (rows[ii].serviceType.indexOf("neutron") != -1) ) {
                   arrayBuild[jj].neutron += rows[ii].avg_Uptime;
                   arrayBuild[jj].neutronC += 1;
                 }
@@ -2898,7 +2898,7 @@ function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue, 
               if (rows[ii].serviceType.indexOf("nova") != -1) {
                 t.nova += rows[ii].avg_Uptime;
                 t.novaC += 1;
-              } else if (rows[ii].serviceType.indexOf("quantum") != -1) {
+              } else if ( (rows[ii].serviceType.indexOf("quantum") != -1) || (rows[ii].serviceType.indexOf("neutron") != -1) ) {
                 t.neutron += rows[ii].avg_Uptime;
                 t.neutronC += 1;
               } else if (rows[ii].serviceType.indexOf("cinder") != -1) {
