@@ -1,0 +1,28 @@
+* General description
+  This application is used to populate the historical database with monitoring information collected for each region by the FIWARE monitoring system.
+
+  In the application there is a collector which runs periodically (daily) as a batch job. This collector is able to perform various queries towards the Monasca master node using the monascaAPI and retrieve historical and aggregated information in order to populate responses of the following APIs, described [[http://docs.federationmonitoring.apiary.io/#][here]]: Services4Region, Region, Host, VM, Host2Host, Service4Host, Service4VM, NE.
+
+  From the above API, the following entities can be summarized: sanity_check, service, region, host and VMs. In the first phase entities are filtered only by region and should have the following attributes/measurements:
+  1) sanity_check
+     - avg_Uptime: sanityOK / sanityTOT
+     - timestamp
+     - aggrType
+  2) service
+     - avg_Uptime
+     - timestamp
+     - serviceType (cinder_api, cinder_scheduler, nova_api ...)
+     - aggrType
+
+  Each measurements collected from the previous day must be aggregated monthly, daily and hourly and then inserted into a new MySql database, respecting the same structure present in the current historical database.
+
+* Model
+** Class
+   1) region
+   2) collector
+      1) dayQuery
+      2) hourQuery
+      3) monthQuery
+   3) sanity_check
+   4) host
+   5) vm

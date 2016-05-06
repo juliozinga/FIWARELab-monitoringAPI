@@ -5,3 +5,10 @@ node_modules
 .pydevproject
 .idea
 *.iml
+
+# python temp
+*.pyc
+
+# monitoringHisto
+*config-password.ini
+monitoringHisto/dist/
