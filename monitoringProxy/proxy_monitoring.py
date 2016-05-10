@@ -542,57 +542,57 @@ def get_region_from_mongo(mongodb, regionid):
         "power_consumption": ""
     }
     # get sul mongo della entity region
-    regions = mongodb[app.config["mongodb"]["collectionname"]].find({"_id.type": "region"})
-    if regions is None: return None
-    for region in regions:
-        if regionid is not None and region["_id"]["id"] == regionid:
+    region = mongodb[app.config["mongodb"]["collectionname"]].find_one({"$and": [{"_id.type": "region"}, {"_id.id": regionid}]})
+    if region is None: return None
+    # for region in regions:
+    if regionid is not None and region["_id"]["id"] == regionid:
 
-            region_entity["_links"]["self"]["href"] = "/monitoring/regions/" + regionid
-            region_entity["_links"]["hosts"]["href"] = "/monitoring/regions/" + regionid + "/hosts"
-            d = datetime.datetime.fromtimestamp(int(region["modDate"]))
-            region_entity["measures"][0]["timestamp"] = d.strftime("%Y-%m-%dT%H:%M:%S.000Z")
-            region_entity["measures"][0]["ipAssigned"] = region["attrs"]["ipUsed"]["value"]
-            region_entity["measures"][0]["ipAllocated"] = region["attrs"]["ipAvailable"]["value"]
-            region_entity["measures"][0]["ipTot"] = region["attrs"]["ipTot"]["value"]
+        region_entity["_links"]["self"]["href"] = "/monitoring/regions/" + regionid
+        region_entity["_links"]["hosts"]["href"] = "/monitoring/regions/" + regionid + "/hosts"
+        d = datetime.datetime.fromtimestamp(int(region["modDate"]))
+        region_entity["measures"][0]["timestamp"] = d.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        region_entity["measures"][0]["ipAssigned"] = region["attrs"]["ipUsed"]["value"]
+        region_entity["measures"][0]["ipAllocated"] = region["attrs"]["ipAvailable"]["value"]
+        region_entity["measures"][0]["ipTot"] = region["attrs"]["ipTot"]["value"]
 
-            region_entity["measures"][0]["ram_allocation_ratio"] = region["attrs"]["ram_allocation_ratio"]["value"]
-            region_entity["measures"][0]["cpu_allocation_ratio"] = region["attrs"]["cpu_allocation_ratio"]["value"]
+        region_entity["measures"][0]["ram_allocation_ratio"] = region["attrs"]["ram_allocation_ratio"]["value"]
+        region_entity["measures"][0]["cpu_allocation_ratio"] = region["attrs"]["cpu_allocation_ratio"]["value"]
 
-            region_entity["id"] = region["_id"]["id"]
-            region_entity["name"] = region["_id"]["id"]
-            region_entity["country"] = region["attrs"]["location"]["value"]
-            region_entity["latitude"] = region["attrs"]["latitude"]["value"]
-            region_entity["longitude"] = region["attrs"]["longitude"]["value"]
+        region_entity["id"] = region["_id"]["id"]
+        region_entity["name"] = region["_id"]["id"]
+        region_entity["country"] = region["attrs"]["location"]["value"]
+        region_entity["latitude"] = region["attrs"]["latitude"]["value"]
+        region_entity["longitude"] = region["attrs"]["longitude"]["value"]
 
-            # aggragation from virtual machines on region
-            vms = get_cursor_active_vms_from_mongo(mongodb, regionid)
-            if vms is not None:
-                vms_data = aggr_vms_data(vms)
-                region_entity["measures"][0]["nb_vm"] = vms_data["nb_vm"]
-                region_entity["nb_vm"] = vms_data["nb_vm"]
+        # aggragation from virtual machines on region
+        vms = get_cursor_active_vms_from_mongo(mongodb, regionid)
+        if vms is not None:
+            vms_data = aggr_vms_data(vms)
+            region_entity["measures"][0]["nb_vm"] = vms_data["nb_vm"]
+            region_entity["nb_vm"] = vms_data["nb_vm"]
 
-            # aggragation from hosts on region
-            hosts = get_cursor_hosts_from_mongo(mongodb, regionid)
-            if hosts is not None:
-                hosts_data = aggr_hosts_data(hosts)
-                region_entity["nb_ram"] = hosts_data["ramTot"]
-                region_entity["measures"][0]["nb_ram"] = hosts_data["ramTot"]
-                region_entity["nb_disk"] = hosts_data["diskTot"]
-                region_entity["measures"][0]["nb_disk"] = hosts_data["diskTot"]
-                region_entity["nb_cores"] = hosts_data["cpuTot"]
-                region_entity["measures"][0]["nb_cores"] = hosts_data["cpuTot"]
-                region_entity["nb_cores_used"] = hosts_data["cpuNow"]
-                region_entity["measures"][0]["nb_cores_used"] = hosts_data["cpuNow"]
-                region_entity["measures"][0]["percRAMUsed"] = 0
-                region_entity["measures"][0]["percDiskUsed"] = 0
-                if hosts_data["ramTot"] != 0:
-                    region_entity["measures"][0]["percRAMUsed"] = hosts_data["ramNowTot"] / (
-                    hosts_data["ramTot"] * float(region["attrs"]["ram_allocation_ratio"]["value"]))
-                if hosts_data["diskTot"] != 0:
-                    region_entity["measures"][0]["percDiskUsed"] = hosts_data["diskNowTot"] / hosts_data["diskTot"]
-        else:
-            return None
-        return region_entity
+        # aggragation from hosts on region
+        hosts = get_cursor_hosts_from_mongo(mongodb, regionid)
+        if hosts is not None:
+            hosts_data = aggr_hosts_data(hosts)
+            region_entity["nb_ram"] = hosts_data["ramTot"]
+            region_entity["measures"][0]["nb_ram"] = hosts_data["ramTot"]
+            region_entity["nb_disk"] = hosts_data["diskTot"]
+            region_entity["measures"][0]["nb_disk"] = hosts_data["diskTot"]
+            region_entity["nb_cores"] = hosts_data["cpuTot"]
+            region_entity["measures"][0]["nb_cores"] = hosts_data["cpuTot"]
+            region_entity["nb_cores_used"] = hosts_data["cpuNow"]
+            region_entity["measures"][0]["nb_cores_used"] = hosts_data["cpuNow"]
+            region_entity["measures"][0]["percRAMUsed"] = 0
+            region_entity["measures"][0]["percDiskUsed"] = 0
+            if hosts_data["ramTot"] != 0:
+                region_entity["measures"][0]["percRAMUsed"] = hosts_data["ramNowTot"] / (
+                hosts_data["ramTot"] * float(region["attrs"]["ram_allocation_ratio"]["value"]))
+            if hosts_data["diskTot"] != 0:
+                region_entity["measures"][0]["percDiskUsed"] = hosts_data["diskNowTot"] / hosts_data["diskTot"]
+    else:
+        return None
+    return region_entity
 
 
 def get_host_from_mongo(mongodb, region, hostid):
