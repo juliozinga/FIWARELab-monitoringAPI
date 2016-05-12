@@ -166,7 +166,7 @@ return empty array if error
 def make_request(request_url, request, regionid=None):
     monitoring_url, monitoring_port = select_monitoring_to_forward(regionid)
     base_url = "http://" + monitoring_url + ":" + monitoring_port
-    if request is None:
+    if request is None or not request.query_string:
         uri = base_url + request_url
     else:
         uri = base_url + request_url + "?" + request.query_string
