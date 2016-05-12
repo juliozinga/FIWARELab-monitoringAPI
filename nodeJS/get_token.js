@@ -11,8 +11,8 @@ var http = require('http');
 var OAuth2 = OAuth.OAuth2;
 
 //create a key secret using the portal or ask in order to obtain the ConsumerKey and ConsumerSecret
-var ConsumerKey='7f57c3020ea149bf93141830419d29ce';
-var ConsumerSecret =  'fe50a466ffa24a9093303aa26187a032';
+var ConsumerKey='XXXXXXX';
+var ConsumerSecret =  'XXXXXXX';
 var IDMaddress='https://account.lab.fiware.org/';
 ;
 
