@@ -1802,10 +1802,8 @@ function getVmList(res, statusType, authToken, regionId) {
 
 function getVm(res, statusType, authToken, regionId, vmId) {
   if (authToken) {
+    access_token = authToken
     app_id = 0;
-    part = (authToken.substring(7))
-    var originaldata = new Buffer(part, 'base64');
-    access_token = originaldata.toString('utf8')
     var options = {
       hostname: IDMurl,
       port: '443',
@@ -1844,7 +1842,7 @@ function getVm(res, statusType, authToken, regionId, vmId) {
           } catch (err) {
             sendErrorResponse(res, localEnum.UNAUTHORIZED.value, localEnum.UNAUTHORIZED.key);
           }
-          if (UserJson == null) sendErrorResponse(res, localEnum.UNAUTHORIZED.value, localEnum.UNAUTHORIZED.key);
+          if (UserJson == null || UserJson.hasOwnProperty('error')) sendErrorResponse(res, localEnum.UNAUTHORIZED.value, localEnum.UNAUTHORIZED.key);
           actorId = UserJson.actorId;
           organizations = null;
           if (UserJson.organizations) organizations = UserJson.organizations;
@@ -2073,10 +2071,8 @@ function getVm(res, statusType, authToken, regionId, vmId) {
 function getVmTime(res, statusType, authToken, regionId, vmId, sinceValue) {
   /*HADOOP needed*/
   if (authToken) {
+    access_token = authToken;
     app_id = 0;
-    part = (authToken.substring(7))
-    var originaldata = new Buffer(part, 'base64');
-    access_token = originaldata.toString('utf8')
     var options = {
       hostname: IDMurl,
       port: '443',
