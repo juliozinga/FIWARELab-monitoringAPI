@@ -1897,7 +1897,7 @@ function getVm(res, statusType, authToken, regionId, vmId) {
                   "_id.type": "vm"
                 }, {
                   "_id.id": {
-                    $regex: vmId
+                    $regex: regionId + ":"+ vmId
                   }
                 }]
               }, function(err, vmValue) {
