@@ -551,18 +551,26 @@ def get_region_from_mongo(mongodb, regionid):
         region_entity["_links"]["hosts"]["href"] = "/monitoring/regions/" + regionid + "/hosts"
         d = datetime.datetime.fromtimestamp(int(region["modDate"]))
         region_entity["measures"][0]["timestamp"] = d.strftime("%Y-%m-%dT%H:%M:%S.000Z")
-        region_entity["measures"][0]["ipAssigned"] = region["attrs"]["ipUsed"]["value"]
-        region_entity["measures"][0]["ipAllocated"] = region["attrs"]["ipAvailable"]["value"]
-        region_entity["measures"][0]["ipTot"] = region["attrs"]["ipTot"]["value"]
+        if region["attrs"].has_key('ipUsed'):
+            region_entity["measures"][0]["ipAssigned"] = region["attrs"]["ipUsed"]["value"]
+        if region["attrs"].has_key('ipAvailable'):
+            region_entity["measures"][0]["ipAllocated"] = region["attrs"]["ipAvailable"]["value"]
+        if region["attrs"].has_key('ipTot'):
+            region_entity["measures"][0]["ipTot"] = region["attrs"]["ipTot"]["value"]
 
-        region_entity["measures"][0]["ram_allocation_ratio"] = region["attrs"]["ram_allocation_ratio"]["value"]
-        region_entity["measures"][0]["cpu_allocation_ratio"] = region["attrs"]["cpu_allocation_ratio"]["value"]
+        if region["attrs"].has_key('ram_allocation_ratio'):
+            region_entity["measures"][0]["ram_allocation_ratio"] = region["attrs"]["ram_allocation_ratio"]["value"]
+        if region["attrs"].has_key('cpu_allocation_ratio'):
+            region_entity["measures"][0]["cpu_allocation_ratio"] = region["attrs"]["cpu_allocation_ratio"]["value"]
 
         region_entity["id"] = region["_id"]["id"]
         region_entity["name"] = region["_id"]["id"]
-        region_entity["country"] = region["attrs"]["location"]["value"]
-        region_entity["latitude"] = region["attrs"]["latitude"]["value"]
-        region_entity["longitude"] = region["attrs"]["longitude"]["value"]
+        if region["attrs"].has_key('location'):
+            region_entity["country"] = region["attrs"]["location"]["value"]
+        if region["attrs"].has_key('latitude'):
+            region_entity["latitude"] = region["attrs"]["latitude"]["value"]
+        if region["attrs"].has_key('longitude'):
+            region_entity["longitude"] = region["attrs"]["longitude"]["value"]
 
         # aggragation from virtual machines on region
         vms = get_cursor_active_vms_from_mongo(mongodb, regionid)
