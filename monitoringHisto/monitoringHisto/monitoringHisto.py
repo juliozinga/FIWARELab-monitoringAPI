@@ -32,41 +32,43 @@ def main():
         print("Problem parsing config file: {}").format(e)
         sys.exit(-1)
 
-    # Load and start data collection from Monasca
+    # Setup monasca collector
     CONF_M_SECTION = 'monasca'
     keystone_endpoint = config.get('keystone','uri')
     monasca_endpoint = config.get('monasca','uri')
     user = config.get('profile','user')
     password = config.get('profile','password')
-
     collector = CollectorMonasca(user, password, monasca_endpoint, keystone_endpoint)
-    # print collector.get_metrics('Spain2')
-    # print collector.get_metrics_names('Spain2')
-    # print "Services list: \n" + repr(collector.get_processes_names('Spain2'))
-    # print "Regionid wrong: \n" + repr(collector.get_services_names('Spain2'))
 
-    agg = model.Aggregation('h', 3600, 'avg')
-    # services_proceses = collector.get_services_processes_avg('Spain2', (int(time.time()) - 36000), agg.period)
+    # Setup mysql persister
+    persister = PersisterMysql(config._sections.get('mysql'))
+
+    # Setup temporal period in which work
     end_timestamp = utils.get_timestamp(utils.get_today_midnight_datetime())
     start_timestamp = utils.get_timestamp(utils.get_yesterday_midnight_datetime())
-    services_proceses = collector.get_services_processes_avg('Spain2', agg.period, start_timestamp, end_timestamp)
-    if services_proceses:
-        persister = PersisterMysql(config._sections.get('mysql'))
-    for service in services_proceses:
-        for process_name in services_proceses[service].keys():
-            process_values = services_proceses[service][process_name][0]
-            process_data = model_adapter.from_monasca_process_to_process(process_values, agg)
-            # pass process_data to DB Adapter for importing
-            persister.persist_process(process_data)
 
+    regions = ['Spain2']
+    for region in regions:
 
+        # Retrieve sanity checks aggregation
+        day_agg = model.Aggregation('d', 86400, 'avg')
+        sanities_data = collector.get_sanities_avg(region,day_agg.period, start_timestamp, end_timestamp)
+        # Adapt and persist sanity checks aggregation
+        for sanity_data in sanities_data:
+            sanity = model_adapter.from_monasca_sanity_to_sanity(sanity_data, day_agg)
+            persister.persist_sanity(sanity)
 
-    # keys = result.keys()
-    # print keys
-    # print "Averaged processes for Spain2: \n" + repr( result )
-    # Load and start data import to database
+        # Retrieve processes aggregation
+        hour_agg = model.Aggregation('h', 3600, 'avg')
+        services_processes = collector.get_services_processes_avg(region, hour_agg.period, start_timestamp, end_timestamp)
+        # Adapt and persist processes aggregation
+        for service in services_processes:
+            for process_name in services_processes[service].keys():
+                process_values = services_processes[service][process_name][0]
+                process = model_adapter.from_monasca_process_to_process(process_values, hour_agg)
+                persister.persist_process(process)
 
-    # Generate day, month aggregation on database
+    # Generate day, month hour_aggregation on database
 
 # Argument management
 def arg_parser():

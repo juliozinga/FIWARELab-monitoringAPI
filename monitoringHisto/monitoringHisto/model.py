@@ -10,10 +10,23 @@ class Aggregation:
         self.type = type
 
 
+class Process:
+    name = None
+    service_name = None
+    region = None
+    aggregation = None
+
+    def __init__(self, name=None, service_name=None, region=None, aggregation=None):
+        self.name = name
+        self.service_name = service_name
+        self.region = region
+        self.aggregation = aggregation
+
+
 class ProcessAggregation:
     type = None
     code = None
-    timestamp_end = None
+    timestamp_last = None
     measurements = []
 
     def __init__(self, type=None, code=None, timestamp_end=None, measurements=None):
@@ -31,15 +44,34 @@ class ProcessMeasurement:
         self.value = value
 
 
-class Process:
+class SanityCheck:
     name = None
-    service_name = None
     region = None
     aggregation = None
 
-    def __init__(self, name=None, service_name=None, region=None, aggregation=None):
+    def __init__(self, name=None, region=None, aggregation=None):
         self.name = name
-        self.service_name = service_name
         self.region = region
         self.aggregation = aggregation
 
+
+class SanityAggregation(Aggregation):
+    timestamp_last = None
+    measurements = []
+
+    def __init__(self, type=None, code=None, timestamp_end=None, measurements=None):
+        self.type = type
+        self.code = code
+        self.measurements = []
+
+    def get_timestamp_end(self):
+        return self.timestamp_last + self.period
+
+
+class SanityMeasurement:
+    timestamp = None
+    value = None
+
+    def __init__(self, timestamp=None, value=None):
+        self.timestamp = timestamp
+        self.value = value

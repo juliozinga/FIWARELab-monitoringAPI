@@ -93,6 +93,20 @@ class CollectorMonasca:
             avg_processes[process_name] = proc
         return avg_processes
 
+    def get_sanities_avg(self, regionid, avg_period, start_timestamp, end_timestamp=None):
+        avg_sanities = {}
+        # Retrieve averaged metrics for each service based on avg_period
+        params = {}
+        params['name'] = 'region.sanity_status'
+        params['start_time'] = datetime.datetime.fromtimestamp(start_timestamp).isoformat()
+        if end_timestamp:
+            params['end_time'] = datetime.datetime.fromtimestamp(end_timestamp).isoformat()
+        params['statistics'] = 'avg'
+        params['period'] = avg_period
+        dimensions = {'region' : regionid}
+        params['dimensions'] = dimensions
+        return self.__perform_monasca_query(self.__monasca_client.metrics.list_statistics, params)
+
     def __perform_monasca_query(self, f, params):
         resp = None
         try:

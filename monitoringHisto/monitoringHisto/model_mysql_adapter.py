@@ -18,3 +18,17 @@ def from_process_measurement_to_mysql_host_service(process, measurement):  # typ
         # Set avg_Uptime value to max 1 --> 100%
         host_service.avg_Uptime = measurement.value if measurement.value < 1 else 1
         return host_service
+
+def from_sanity_check_to_mysql_host_service(sanity_check, timestamp):
+        SANITY = "sanity"
+        host_service = HostService()
+        host_service.entityId = sanity_check.region + "-" + SANITY
+        host_service.region = sanity_check.region
+        host_service.entityType = "host_service"
+        host_service.serviceType = SANITY
+        host_service.aggregationType = "h"
+        host_service.timestampId = timestamp
+        # Set avg_Uptime value to max 1 --> 100%
+        host_service.avg_Uptime = sanity_check.aggregation.measurements[0].value
+        # return host_service
+        return host_service
