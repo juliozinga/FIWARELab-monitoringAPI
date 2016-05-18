@@ -62,7 +62,10 @@ class SanityAggregation(Aggregation):
     def __init__(self, type=None, code=None, timestamp_end=None, measurements=None):
         self.type = type
         self.code = code
-        self.measurements = []
+        if not measurements:
+            self.measurements = []
+        else:
+            self.measurements.append(measurements)
 
     def get_timestamp_end(self):
         return self.timestamp_last + self.period

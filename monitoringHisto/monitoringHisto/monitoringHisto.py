@@ -43,9 +43,12 @@ def main():
     # Setup mysql persister
     persister = PersisterMysql(config._sections.get('mysql'))
 
-    # Setup temporal period in which work
-    end_timestamp = utils.get_timestamp(utils.get_today_midnight_datetime())
-    start_timestamp = utils.get_timestamp(utils.get_yesterday_midnight_datetime())
+    # Setup default temporal period in which to work
+    # TODO: Set these values from arguments if presents
+    end = utils.get_today_midnight_datetime()
+    start = utils.get_yesterday_midnight_datetime()
+    end_timestamp = utils.get_timestamp(end)
+    start_timestamp = utils.get_timestamp(start)
 
     regions = ['Spain2']
     for region in regions:
@@ -57,6 +60,10 @@ def main():
         for sanity_data in sanities_data:
             sanity = model_adapter.from_monasca_sanity_to_sanity(sanity_data, day_agg)
             persister.persist_sanity(sanity)
+        # Write daily averaged aggregation for sanity checks
+        persister.persist_sanity_daily_avg(start, end)
+        # Write daily averaged aggregation for sanity checks
+        # persister.persiste_sanity_montly_avg(start_timestamp, end_timestamp)
 
         # Retrieve processes aggregation
         hour_agg = model.Aggregation('h', 3600, 'avg')
