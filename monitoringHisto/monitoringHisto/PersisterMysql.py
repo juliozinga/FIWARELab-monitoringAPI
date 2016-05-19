@@ -39,7 +39,7 @@ class PersisterMysql:
             self.__mysql_session.add(host_service)
         self.__mysql_session.commit()
 
-    def persist_sanity(self, sanity_check): # type: SanityCheck
+    def persist_sanity(self, sanity_check):  # type: SanityCheck
         if sanity_check.aggregation.code is 'd':
             # Convert aggregation to hours
             sanity_check.aggregation.code = 'h'
@@ -53,33 +53,23 @@ class PersisterMysql:
             self.__mysql_session.commit()
         else:
             # TODO: Move to ERR logger
-            print "ERR: Persit of " + sanity_check.__class__.__name__ + " with aggregation different from daily (d)  not implemented. nothing imported"
-
+            print "ERR: Persit of " + sanity_check.__class__.__name__ + " with aggregation different from daily (d) " \
+                                                                        "not implemented. nothing imported"
 
     def persist_sanity_daily_avg(self, start, end):
         day = datetime.timedelta(days=1)
 
         # Filter sanity per region
-        region_host_services = self.__mysql_session.query(HostService)\
-            .group_by(HostService.region)\
-            .filter(HostService.serviceType == "sanity") \
-            .filter(HostService.aggregationType == "h") \
-            .filter(HostService.timestampId >= start, HostService.timestampId <= end)\
-            .all()
+        region_host_services = self._get_per_region_host_service_list(start, end, "sanity", "h")
 
         while start < end:
-            # Normalize to midnight
+            # Normalize dates to midnight
             datetime_agg = start.replace(hour=0)
             # Calculate daily average
             for host_service in region_host_services:
-                r = self.__mysql_session.query(
-                    func.avg(HostService.avg_Uptime).label('dailyUptime'))\
-                    .filter(HostService.region == host_service.region) \
-                    .filter(HostService.serviceType == host_service.serviceType)\
-                    .filter(HostService.timestampId >= datetime_agg, HostService.timestampId < datetime_agg + day)
-                daily_uptime = r.value(r.label('dailyUptime'))
-                if daily_uptime:
-                    # Insert daily average for this region
+                daily_uptime = self._get_per_host_service_average_uptime(datetime_agg, datetime_agg + day, host_service)
+                if daily_uptime is not None:
+                    # Persist daily average for this region
                     m = SanityMeasurement(timestamp=datetime_agg, value=daily_uptime)
                     sa = SanityAggregation(type='avg', code='d', measurements=m)
                     sanity_check = SanityCheck(name='sanity', region=host_service.region, aggregation=sa)
@@ -88,8 +78,23 @@ class PersisterMysql:
                     self.__mysql_session.commit()
                 else:
                     # TODO: Move to ERR logger
-                    print "ERR: Persist of daily aggregation for " + SanityCheck.__class__.__name__  \
+                    print "ERR: Persist of daily aggregation for " + SanityCheck().__class__.__name__  \
                           + ". Hourly values not present"
-
             # Next day in range
             start = start + day
+
+    def _get_per_region_host_service_list(self, start, end, service_type, aggregation_type):
+        return self.__mysql_session.query(HostService) \
+            .group_by(HostService.entityId) \
+            .filter(HostService.serviceType == service_type) \
+            .filter(HostService.aggregationType == aggregation_type) \
+            .filter(HostService.timestampId >= start, HostService.timestampId <= end) \
+            .all()
+
+    def _get_per_host_service_average_uptime(self, start, end, host_service):
+        r = self.__mysql_session.query(
+            func.avg(HostService.avg_Uptime).label('dailyUptime')) \
+            .filter(HostService.region == host_service.region) \
+            .filter(HostService.serviceType == host_service.serviceType) \
+            .filter(HostService.timestampId >= start, HostService.timestampId < end)
+        return r.value(r.label('dailyUptime'))

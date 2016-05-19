@@ -62,7 +62,7 @@ def main():
             persister.persist_sanity(sanity)
         # Write daily averaged aggregation for sanity checks
         persister.persist_sanity_daily_avg(start, end)
-        # Write daily averaged aggregation for sanity checks
+        # Write monthly averaged aggregation for sanity checks
         # persister.persiste_sanity_montly_avg(start_timestamp, end_timestamp)
 
         # Retrieve processes aggregation
