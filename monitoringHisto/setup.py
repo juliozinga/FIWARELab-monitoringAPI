@@ -6,36 +6,35 @@ with open('requirements.txt') as f:
 setup(
 
     install_requires=required,
-    name='sample',
+    name='monitoringHisto',
 
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='1.2.0',
+    version='0.1',
 
-    description='A sample Python project',
+    description='FIWARE Historical monitoring collector',
     long_description='',
 
     # The project's main homepage.
-    url='https://github.com/pypa/sampleproject',
+    url='https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI',
 
     # Author details
-    author='The Python Packaging Authority',
-    author_email='pypa-dev@googlegroups.com',
+    author='Daniele Santoro',
+    author_email='',
 
     # Choose your license
-    license='MIT',
+    license='Apache v2.0',
 
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().
-    packages=find_packages(exclude=['contrib', 'docs', 'tests']),
+    packages=['monitoringHisto'],
 
     # To provide executable scripts, use entry points in preference to the
     # "scripts" keyword. Entry points provide cross-platform support and allow
     # pip to create the appropriate form of executable for the target platform.
-    entry_points={
-        'console_scripts': [
-            'monitoringHisto=monitoringHisto:main',
+    entry_points={'console_scripts': [
+            'monitoringHisto=monitoringHisto.monitoringHisto:main',
         ],
     },
 )

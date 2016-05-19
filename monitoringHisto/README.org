@@ -16,13 +16,40 @@
 
   Each measurements collected from the previous day must be aggregated monthly, daily and hourly and then inserted into a new MySql database, respecting the same structure present in the current historical database.
 
-* Model
-** Class
-   1) region
-   2) collector
-      1) dayQuery
-      2) hourQuery
-      3) monthQuery
-   3) sanity_check
-   4) host
-   5) vm
+* Deployment and run
+  The application is intended to run periodically every day. It is suggested to run it after midnight since the default behavior is to collect from the MonascaAPI the historical information of the day before and store them into the historical MySQL db.
+
+** Deployment & run for development
+    1) Create a virtualenv
+       #+BEGIN_EXAMPLE
+       mkvirtualenv monitoringHisto
+       #+END_EXAMPLE
+    2) Install the dependencies
+       #+BEGIN_EXAMPLE
+       pip install -r requirements.txt
+       #+END_EXAMPLE
+    3) Create an executable in the virtualenv
+       #+BEGIN_EXAMPLE
+       python setup.py develop
+       #+END_EXAMPLE
+    4) Run the executable (also from outside the virtualenv)
+       #+BEGIN_EXAMPLE
+       $VIRTUAL_ENV/bin/monitoringHisto
+       #+END_EXAMPLE
+
+** Deployment for production
+   1) Create a dist package
+      #+BEGIN_EXAMPLE
+      python setup.py sdist      
+      #+END_EXAMPLE
+
+** Cronjob setup
+   Depending on how the package has been deployed the cronjob configuration change. Insert the following into a cronjob to start the script at 00:15 every day:
+   1) Development /(executable available in the venv)/
+      #+BEGIN_EXAMPLE
+      15 0 * * * PATH_OF_THE_VENV/bin/monitoringHisto -c PATH/config.ini
+      #+END_EXAMPLE
+   2) Production /(executable available from the package)/
+      #+BEGIN_EXAMPLE
+      15 0 * * * PATH_OF_THE_PACKAGE/bin/monitoringHisto -c PATH/config.ini
+      #+END_EXAMPLE

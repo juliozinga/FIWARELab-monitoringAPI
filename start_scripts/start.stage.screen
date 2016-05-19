@@ -11,3 +11,9 @@ screen -t nodeJsMongoOld_11031 bash
 stuff "cd .. && node nodeJS/monitoringAPI.js nodeJS/api-MongoOld.cfg^M"
 screen -t nodeJsMongoNew_11032 bash
 stuff "cd .. && node nodeJS/monitoringAPI.js nodeJS/api-MongoNew.cfg^M"
+screen -t monitoringHisto bash
+stuff "workon monitoringHistoStaging^M"
+stuff "cd .. &&^M"
+stuff "echo 'tail -f logs'^M"
+screen -t bash bash
+stuff "cd ..^M"
