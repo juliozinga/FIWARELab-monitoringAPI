@@ -3,7 +3,6 @@ from CollectorMonasca import CollectorMonasca
 from PersisterMysql import PersisterMysql
 import model_adapter
 import model
-import time
 import argparse
 import os
 import utils
@@ -68,10 +67,6 @@ def main():
         for sanity_data in sanities_data:
             sanity = model_adapter.from_monasca_sanity_to_sanity(sanity_data, day_agg)
             persister.persist_sanity(sanity)
-        # Write daily averaged aggregation for sanity checks
-        persister.persist_sanity_daily_avg(start, end)
-        # Write monthly averaged aggregation for sanity checks
-        # persister.persiste_sanity_montly_avg(start_timestamp, end_timestamp)
 
         # Retrieve processes aggregation
         hour_agg = model.Aggregation('h', 3600, 'avg')
@@ -82,8 +77,10 @@ def main():
                 process_values = services_processes[service][process_name][0]
                 process = model_adapter.from_monasca_process_to_process(process_values, hour_agg)
                 persister.persist_process(process)
-        # Write daily averaged aggregation for sanity checks
-        persister.persist_process_daily_avg(start, end)
+
+
+        # Calculate and persist host_service daily aggregation
+        persister.persist_host_service_daily_avg(start, end)
 
 
 # Argument management

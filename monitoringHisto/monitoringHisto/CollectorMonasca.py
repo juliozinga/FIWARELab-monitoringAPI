@@ -1,6 +1,5 @@
 from monascaclient import client
 from monascaclient import ksclient
-from sets import Set
 import monascaclient.exc as exc
 import datetime
 
@@ -27,7 +26,7 @@ class CollectorMonasca:
 
     def get_metrics_names(self, regionid):
         metrics = self.get_metrics(regionid)
-        names = Set()
+        names = set()
         for metric in metrics:
             names.add(metric['name'])
         return names
@@ -41,14 +40,14 @@ class CollectorMonasca:
 
     def get_processes_names(self, regionid):
         processes = self.get_processes(regionid)
-        names = Set()
+        names = set()
         for process in processes:
             names.add(process['dimensions']['process_name'])
         return names
 
     def get_services_names(self, regionid):
         processes = self.get_processes(regionid)
-        names = Set()
+        names = set()
         for process in processes:
             names.add(process['dimensions']['service'])
         return names
@@ -62,7 +61,7 @@ class CollectorMonasca:
 
     def get_service_processes_names(self, regionid, service_name):
         processes = self.get_service_processes(regionid, service_name)
-        names = Set()
+        names = set()
         for process in processes:
             names.add(process['dimensions']['process_name'])
         return names

@@ -6,9 +6,6 @@ from sqlalchemy import func
 from sqlalchemy.orm.session import make_transient
 from model import Process
 from model import SanityCheck
-from model import Aggregation
-from model import SanityAggregation
-from model import SanityMeasurement
 from model_mysql import *
 from copy import deepcopy, copy
 import model_mysql_adapter
@@ -40,7 +37,7 @@ class PersisterMysql:
         for measurement in process.aggregation.measurements:
             host_service = model_mysql_adapter.from_process_measurement_to_mysql_host_service(process, measurement)
             self.__mysql_session.add(host_service)
-        self.__mysql_session.commit()
+        self._session_commit()
 
     def persist_sanity(self, sanity_check):  # type: SanityCheck
         if sanity_check.aggregation.code is 'd':
@@ -56,7 +53,7 @@ class PersisterMysql:
                     my_host_service.aggregationType = 'h'
                     host_service_day.append(my_host_service)
                 self.__mysql_session.add_all(host_service_day)
-                self.__mysql_session.commit()
+                self._session_commit()
         else:
             # TODO: Move to ERR logger
             print "ERR: Persit of " + sanity_check.__class__.__name__ + " with aggregation different from daily (d) " \
@@ -76,11 +73,11 @@ class PersisterMysql:
             hs.avg_Uptime = hs_daily_avg_res.dailyUptime
             hs_list_daily_avg.append(hs)
         self.__mysql_session.add_all(hs_list_daily_avg)
-        self.__mysql_session.commit()
+        self._session_commit()
 
-    def persist_process_daily_avg(self, start, end, service_name):
-        # Retrieve daily sanity check average for each region
-        hs_list_daily_avg_res = self._get_host_service_list_daily_average(start, end, 'sanity', 'h')
+    def persist_host_service_daily_avg(self, start, end):
+        # Retrieve daily host_service average for each region
+        hs_list_daily_avg_res = self._get_host_service_list_daily_average(start, end)
 
         hs_list_daily_avg = []
         for hs_daily_avg_res in hs_list_daily_avg_res:
@@ -92,7 +89,7 @@ class PersisterMysql:
             hs.avg_Uptime = hs_daily_avg_res.dailyUptime
             hs_list_daily_avg.append(hs)
         self.__mysql_session.add_all(hs_list_daily_avg)
-        self.__mysql_session.commit()
+        self._session_commit()
 
     def _get_per_region_host_service_list(self, start, end, service_type, aggregation_type):
         return self.__mysql_session.query(HostService) \
@@ -111,11 +108,18 @@ class PersisterMysql:
             .filter(HostService.timestampId >= start, HostService.timestampId < end)
         return r.value(r.label('dailyUptime'))
 
-    def _get_host_service_list_daily_average(self, start, end, service_type, aggregation_type):
+    def _get_host_service_list_daily_average(self, start, end):
         return self.__mysql_session.query(HostService, func.avg(HostService.avg_Uptime).label('dailyUptime')) \
             .group_by(HostService.entityId) \
             .group_by(func.date(HostService.timestampId)) \
-            .filter(HostService.serviceType == service_type) \
-            .filter(HostService.aggregationType == aggregation_type) \
+            .filter(HostService.aggregationType == 'h') \
             .filter(HostService.timestampId >= start, HostService.timestampId <= end) \
             .all()
+
+    def _session_commit(self):
+        try:
+            self.__mysql_session.commit()
+        except Exception as e:
+            # TODO: Print from logger
+            print "Mysql ERR: " + str(e)
+            self.__mysql_session.rollback()
