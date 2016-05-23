@@ -46,6 +46,20 @@ def main():
         print("Problem parsing config file: {}").format(e)
         sys.exit(-1)
 
+    # Read main config file
+    mainconfig_file = config.get("mainconfig", "path")
+    if not os.path.isfile(mainconfig_file):
+        print("Main configuration file not found: {}").format(mainconfig_file)
+        sys.exit(-1)
+    try:
+        main_config = ConfigParser()
+        # Preserve case when reading configfile
+        main_config.optionxform = str
+        main_config.read(mainconfig_file)
+    except Exception as e:
+        print("Problem parsing main config file: {}").format(e)
+        sys.exit(-1)
+
     # Setup monasca collector
     CONF_M_SECTION = 'monasca'
     keystone_endpoint = config.get('keystone','uri')
@@ -57,7 +71,8 @@ def main():
     # Setup mysql persister
     persister = PersisterMysql(config._sections.get('mysql'))
 
-    regions = ['Spain2']
+    # Get list of regions
+    regions = utils.get_regions(main_config)
     for region in regions:
 
         # Retrieve sanity checks aggregation
@@ -79,8 +94,8 @@ def main():
                 persister.persist_process(process)
 
 
-        # Calculate and persist host_service daily aggregation
-        persister.persist_host_service_daily_avg(start, end)
+    # Calculate and persist host_service daily aggregation
+    persister.persist_host_service_daily_avg(start, end)
 
 
 # Argument management

@@ -31,3 +31,18 @@ def get_datetime(year, month, day, hour=0, minute=0, second=0, microsecond=0, tz
 
 def get_datetime_from_args(day):
     return datetime.strptime(day, "%Y-%m-%d")
+
+
+def get_regions(main_config):
+    regions = []
+    conf_regions = dict(main_config._sections['regionNew'])
+    for region_id, is_new in conf_regions.iteritems():
+        if str2bool(is_new):
+            regions.append(region_id)
+    return regions
+
+
+# Function to convert a string to boolean value.
+# Used for load_regionNew
+def str2bool(v):
+    return v.lower() in ("yes", "true", "t", "1")
