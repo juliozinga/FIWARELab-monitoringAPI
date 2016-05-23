@@ -8,18 +8,18 @@
      #+END_EXAMPLE
    - =vm= update
      #+BEGIN_EXAMPLE
-     
+     update vm SET entityId = REPLACE(entityId, 'Trento', 'Trento2'), region = 'Trento2' where region = 'Trento';
      #+END_EXAMPLE
    - =host= update
      #+BEGIN_EXAMPLE
-     
+     update host SET entityId = REPLACE(entityId, 'Trento', 'Trento2'), region = 'Trento2' where region = 'Trento';
      #+END_EXAMPLE
    - =region= update
      #+BEGIN_EXAMPLE
-     
+     update region SET entityId = REPLACE(entityId, 'Trento', 'Trento2')  where entityId = 'Trento';
      #+END_EXAMPLE
 ** Migrate region historical data to new monitoring system
-   This queries export from the OLD db and then import to the NEW db the historical data of a region
+   This queries exports from the OLD db and then import to the NEW db the historical data of a region
    - =host_service= export
      #+BEGIN_EXAMPLE
      mysqldump -t -u USER -p OLD_DB_NAME host_service --where="region='Trento2'" > Trento2_host_service_old_db.sql
