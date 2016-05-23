@@ -136,7 +136,7 @@ Return True if region use new monitoring system false otherwise
 
 
 def is_region_new(regionid):
-    if is_region_on(regionid) and str2bool(app.config["regionNew"][regionid]):
+    if is_region_on(regionid) and str2bool(app.config["main_config"]["regionNew"][regionid]):
         return True
     return False
 
@@ -149,7 +149,7 @@ Return True if region is present (enabled) in configuration file
 def is_region_on(regionid):
     if regionid is None:
         return False
-    if app.config["regionNew"].has_key(regionid):
+    if app.config["main_config"]["regionNew"].has_key(regionid):
         return True
     else:
         print "Region id not found in configuration file: " + str(regionid)
@@ -416,7 +416,7 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
         "total_ip": 0
     }
 
-    new_regions = app.config["regionNew"]
+    new_regions = app.config["main_config"]["regionNew"]
     region_list = {}
 
     for region_id, is_new in new_regions.iteritems():
@@ -833,17 +833,33 @@ def main():
         print("Configuration file not found: {}").format(config_file)
         sys.exit(-1)
     try:
-        Config = ConfigParser.ConfigParser()
-        Config.optionxform = str
-        Config.read(config_file)
+        config = ConfigParser.ConfigParser()
+        # Preserve case when reading configfile
+        config.optionxform = str
+        config.read(config_file)
     except Exception as e:
         print("Problem parsing config file: {}").format(e)
         sys.exit(-1)
 
+    # Read main config file
+    mainconfig_file = config.get("mainconfig", "path")
+    if not os.path.isfile(mainconfig_file):
+        print("Main configuration file not found: {}").format(mainconfig_file)
+        sys.exit(-1)
+    try:
+        main_config = ConfigParser.ConfigParser()
+        # Preserve case when reading configfile
+        main_config.optionxform = str
+        main_config.read(mainconfig_file)
+        app.config['main_config'] = dict()
+        app.config['main_config']['regionNew'] = dict(main_config._sections['regionNew'])
+    except Exception as e:
+        print("Problem parsing main config file: {}").format(e)
+        sys.exit(-1)
+
     # Get a map with config declared in SECTION_TO_LOAD and insert it in bottle app
-    SECTION_TO_LOAD = ["mysql", "mongodb", "mongodbOld", "api", "key", "idm", "oldmonitoring", "newmonitoring",
-                       "regionNew"]
-    config_map = config_to_dict(section_list=SECTION_TO_LOAD, config=Config, app=app)
+    SECTION_TO_LOAD = ["mysql", "mongodb", "mongodbOld", "api", "key", "idm", "oldmonitoring", "newmonitoring"]
+    config_map = config_to_dict(section_list=SECTION_TO_LOAD, config=config, app=app)
 
     # Create and install plugin in bottle app
     mongo_map = dict(config_map["mongodb"])

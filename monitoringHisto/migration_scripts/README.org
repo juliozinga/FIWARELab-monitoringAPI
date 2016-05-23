@@ -1,0 +1,34 @@
+* Migration scripts
+  This file summarizes the queries to run in order to modify the mysql historical DB when Regions migrate to new ID or new monitoring system
+** Migrate region to different ID
+   It is safer to perform a complete or selective dump before running the below queries:
+   - =host_service= update
+     #+BEGIN_EXAMPLE
+     update host_service SET entityId = REPLACE(entityId, 'Trento', 'Trento2'), region = 'Trento2' where region = 'Trento';
+     #+END_EXAMPLE
+   - =vm= update
+     #+BEGIN_EXAMPLE
+     
+     #+END_EXAMPLE
+   - =host= update
+     #+BEGIN_EXAMPLE
+     
+     #+END_EXAMPLE
+   - =region= update
+     #+BEGIN_EXAMPLE
+     
+     #+END_EXAMPLE
+** Migrate region historical data to new monitoring system
+   This queries export from the OLD db and then import to the NEW db the historical data of a region
+   - =host_service= export
+     #+BEGIN_EXAMPLE
+     mysqldump -t -u USER -p OLD_DB_NAME host_service --where="region='Trento2'" > Trento2_host_service_old_db.sql
+     #+END_EXAMPLE
+   - =host_service= import
+     #+BEGIN_EXAMPLE
+     mysql -u USER -p NEW_DB_NAME < Trento2_host_service_old_db.sql 
+     #+END_EXAMPLE
+** Selectively backup data before the UPDATE query
+   #+BEGIN_EXAMPLE mysql
+   mysqldump -t -u USER -p DB_NAME host_service --where="region='Trento2'" > Trento2_host_service_201605132039.sql
+   #+END_EXAMPLE
