@@ -53,3 +53,8 @@
       #+BEGIN_EXAMPLE
       15 0 * * * PATH_OF_THE_PACKAGE/bin/monitoringHisto -c PATH/config.ini
       #+END_EXAMPLE
+* Additional features
+** Specify custom period
+   It is possible to specify a custom period on which to elaborate data. This can be done using =--start-day, -s= and =--end-day, -e= as arguments to the command line.
+
+   - 20160523: Due to a bug in the period can not be present other aggregation otherwise all the calculation is skipped.
