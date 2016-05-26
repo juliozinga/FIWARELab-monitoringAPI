@@ -14,8 +14,10 @@ import model_mysql_adapter
 class PersisterMysql:
 
     __mysql_session = None
+    start = None
+    end = None
 
-    def __init__(self, db_conf):
+    def __init__(self, db_conf, start, end):
 
         Base = automap_base()
         dbuser = db_conf.get('dbuser')
@@ -33,61 +35,58 @@ class PersisterMysql:
         # Create the session
         self.__mysql_session = Session(engine)
 
+        self.start = start
+        self.end = end
+
     def persist_process(self, process):  # type: Process
         for measurement in process.aggregation.measurements:
             host_service = model_mysql_adapter.from_process_measurement_to_mysql_host_service(process, measurement)
             self.__mysql_session.add(host_service)
         self._session_commit()
 
-    def persist_sanity(self, sanity_check):  # type: SanityCheck
-        if sanity_check.aggregation.code is 'd':
-            # Convert sanity measurements to host_service list
-            host_service_list = model_mysql_adapter.from_sanity_check_to_mysql_host_service_list(sanity_check)
-            for host_service in host_service_list:
-                # Spread daily sanity on the 24 hours and persist
-                start_hour = host_service.timestampId
+    def persist_sanity(self, sanities):  # type: SanityCheck
+
+        # Retrieve host_service list in DB to check duplication
+        hs_db_list = self._get_host_service_list_hourly(self.start, self.end)
+        hs_db_set = set(hs_db_list)
+
+        for sanity_check in sanities:
+            if sanity_check.aggregation.code is 'd':
+                # Convert sanity measurements to host_service list
+                host_service_list = model_mysql_adapter.from_sanity_check_to_mysql_host_service_list(sanity_check)
                 host_service_day = []
-                for _ in range(24):
-                    my_host_service = deepcopy(host_service)
-                    my_host_service.timestampId = start_hour + datetime.timedelta(hours=_)
-                    my_host_service.aggregationType = 'h'
-                    host_service_day.append(my_host_service)
+                for host_service in host_service_list:
+                    # Spread daily sanity on the 24 hours and persist
+                    start_hour = host_service.timestampId
+                    for _ in range(24):
+                        my_host_service = deepcopy(host_service)
+                        my_host_service.timestampId = start_hour + datetime.timedelta(hours=_)
+                        my_host_service.aggregationType = 'h'
+                        if my_host_service not in hs_db_set:
+                            host_service_day.append(my_host_service)
                 self.__mysql_session.add_all(host_service_day)
                 self._session_commit()
-        else:
-            # TODO: Move to ERR logger
-            print "ERR: Persit of " + sanity_check.__class__.__name__ + " with aggregation different from daily (d) " \
+            else:
+                # TODO: Move to ERR logger
+                print "ERR: Persit of " + sanity_check.__class__.__name__ + " with aggregation different from daily (d) " \
                                                                         "not implemented. nothing imported"
-
-    def persist_sanity_daily_avg(self, start, end):
-        # Retrieve daily sanity check average for each region
-        hs_list_daily_avg_res = self._get_host_service_list_daily_average(start, end, 'sanity', 'h')
-
-        hs_list_daily_avg = []
-        for hs_daily_avg_res in hs_list_daily_avg_res:
-            # Detach object from the session otherwise in import will be duplicated
-            make_transient(hs_daily_avg_res.HostService)
-            hs = deepcopy(hs_daily_avg_res.HostService)  # type: HostService
-            hs.aggregationType = 'd'
-            hs.timestampId = hs.timestampId.replace(hour=0, minute=0, second=0)
-            hs.avg_Uptime = hs_daily_avg_res.dailyUptime
-            hs_list_daily_avg.append(hs)
-        self.__mysql_session.add_all(hs_list_daily_avg)
-        self._session_commit()
 
     def persist_host_service_daily_avg(self, start, end):
         # Retrieve daily host_service average for each region
-        hs_list_daily_avg_res = self._get_host_service_list_daily_average(start, end)
+        hs_list_daily_avg_hours = self._get_host_service_list_daily_average_from_hours(start, end)
+        hs_list_daily_avg = self._get_host_service_list_daily(start, end)
+        hs_list_daily_avg_set = set(hs_list_daily_avg)
 
         hs_list_daily_avg = []
-        for hs_daily_avg_res in hs_list_daily_avg_res:
+        for hs_daily_avg_res in hs_list_daily_avg_hours:
             # Detach object from the session otherwise in import will be duplicated
             make_transient(hs_daily_avg_res.HostService)
             hs = deepcopy(hs_daily_avg_res.HostService)  # type: HostService
             hs.aggregationType = 'd'
             hs.timestampId = hs.timestampId.replace(hour=0, minute=0, second=0)
             hs.avg_Uptime = hs_daily_avg_res.dailyUptime
-            hs_list_daily_avg.append(hs)
+            if hs not in hs_list_daily_avg_set:
+                hs_list_daily_avg.append(hs)
         self.__mysql_session.add_all(hs_list_daily_avg)
         self._session_commit()
 
@@ -108,10 +107,22 @@ class PersisterMysql:
             .filter(HostService.timestampId >= start, HostService.timestampId < end)
         return r.value(r.label('dailyUptime'))
 
-    def _get_host_service_list_daily_average(self, start, end):
+    def _get_host_service_list_daily_average_from_hours(self, start, end):
         return self.__mysql_session.query(HostService, func.avg(HostService.avg_Uptime).label('dailyUptime')) \
             .group_by(HostService.entityId) \
             .group_by(func.date(HostService.timestampId)) \
+            .filter(HostService.aggregationType == 'h') \
+            .filter(HostService.timestampId >= start, HostService.timestampId <= end) \
+            .all()
+
+    def _get_host_service_list_daily(self, start, end):
+        return self.__mysql_session.query(HostService) \
+            .filter(HostService.aggregationType == 'd') \
+            .filter(HostService.timestampId >= start, HostService.timestampId <= end) \
+            .all()
+
+    def _get_host_service_list_hourly(self, start, end):
+        return self.__mysql_session.query(HostService) \
             .filter(HostService.aggregationType == 'h') \
             .filter(HostService.timestampId >= start, HostService.timestampId <= end) \
             .all()

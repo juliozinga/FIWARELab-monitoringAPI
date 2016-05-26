@@ -1,6 +1,7 @@
 # coding: utf-8
 from sqlalchemy import Column, DateTime, Float, String, text
 from sqlalchemy.ext.declarative import declarative_base
+from copy import deepcopy, copy
 
 
 Base = declarative_base()
@@ -33,6 +34,22 @@ class HostService(Base):
     aggregationType = Column(String(8), primary_key=True, nullable=False)
     timestampId = Column(DateTime, primary_key=True, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     avg_Uptime = Column(Float, nullable=False, server_default=text("'0'"))
+
+    def __eq__(self, other):
+        se = dict(self.__dict__)
+        ot = dict(other.__dict__)
+        del se["_sa_instance_state"]
+        del se["avg_Uptime"]
+        del ot["_sa_instance_state"]
+        del ot["avg_Uptime"]
+        return isinstance(other, self.__class__) and se == ot
+
+    def __hash__(self):
+        list = (self.entityType, self.region, self.entityType, self.serviceType, self.aggregationType, self.timestampId)
+        # se = deepcopy(self)
+        # se._sa_instance_state = None
+        # se.avg_Uptime = None
+        return hash(list)
 
 
 class Region(Base):

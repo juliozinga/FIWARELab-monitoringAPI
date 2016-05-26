@@ -69,19 +69,22 @@ def main():
     collector = CollectorMonasca(user, password, monasca_endpoint, keystone_endpoint)
 
     # Setup mysql persister
-    persister = PersisterMysql(config._sections.get('mysql'))
+    persister = PersisterMysql(config._sections.get('mysql'), start, end)
 
     # Get list of regions
     regions = utils.get_regions(main_config)
+    # regions = []
     for region in regions:
 
         # Retrieve sanity checks aggregation
         day_agg = model.Aggregation('d', 86400, 'avg')
         sanities_data = collector.get_sanities_avg(region,day_agg.period, start_timestamp, end_timestamp)
         # Adapt and persist daily average of sanity checks aggregation into hourly base
+        sanities = []
         for sanity_data in sanities_data:
             sanity = model_adapter.from_monasca_sanity_to_sanity(sanity_data, day_agg)
-            persister.persist_sanity(sanity)
+            sanities.append(sanity)
+        persister.persist_sanity(sanities)
 
         # Retrieve processes aggregation
         hour_agg = model.Aggregation('h', 3600, 'avg')
