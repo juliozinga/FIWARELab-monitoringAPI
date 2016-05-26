@@ -2,6 +2,7 @@ from monascaclient import client
 from monascaclient import ksclient
 import monascaclient.exc as exc
 import datetime
+import utils
 
 
 class CollectorMonasca:
@@ -93,7 +94,17 @@ class CollectorMonasca:
         return avg_processes
 
     def get_sanities_avg(self, regionid, avg_period, start_timestamp, end_timestamp=None):
-        avg_sanities = {}
+        # Retrieve statistics from monasca
+        statistics = self.get_sanities_statistics(regionid, avg_period, start_timestamp, end_timestamp)
+
+        # Retrieve measurementes from monasca
+        measurements = self.get_sanities_measurements(regionid, avg_period, start_timestamp, end_timestamp)
+
+        # Remove statistics for which no measurements are present in monasca
+        m_days_set = self.from_dates_to_days_set(self.from_measurements_to_dates(measurements))
+        return self.clean_statistics(statistics, m_days_set)
+
+    def get_sanities_statistics(self, regionid, avg_period, start_timestamp, end_timestamp=None):
         # Retrieve averaged metrics for each service based on avg_period
         params = {}
         params['name'] = 'region.sanity_status'
@@ -106,6 +117,42 @@ class CollectorMonasca:
         params['dimensions'] = dimensions
         return self.__perform_monasca_query(self.__monasca_client.metrics.list_statistics, params)
 
+    def get_sanities_measurements(self, regionid, avg_period, start_timestamp, end_timestamp=None):
+        params = {}
+        params['name'] = 'region.sanity_status'
+        params['start_time'] = datetime.datetime.fromtimestamp(start_timestamp).isoformat()
+        if end_timestamp:
+            params['end_time'] = datetime.datetime.fromtimestamp(end_timestamp).isoformat()
+        params['period'] = avg_period
+        dimensions = {'region' : regionid}
+        params['dimensions'] = dimensions
+        return self.__perform_monasca_query(self.__monasca_client.metrics.list_measurements, params)
+
+    @staticmethod
+    def clean_statistics(statistics, measurement_days_set):
+        timestamp_idx = statistics[0].get( 'columns').index('timestamp')
+        for s in statistics[0]['statistics'][:]:
+            d = utils.from_monasca_ts_to_datetime_se(s[timestamp_idx]).replace(hour=0, minute=0)
+            if d not in measurement_days_set:
+                statistics[0]['statistics'].remove(s)
+        return statistics
+
+    @staticmethod
+    def from_measurements_to_dates(measurements):
+        timestamp_idx = measurements[0].get( 'columns').index('timestamp')
+        dates = []
+        for m in measurements[0]['measurements']:
+            d = utils.from_monasca_ts_to_datetime_ms(m[timestamp_idx])
+            dates.append(d)
+        return dates
+
+    def from_dates_to_days_set(self, dates):
+        days_set = set()
+        for date in dates:
+            date = date.replace(hour=0, minute=0, second=0)
+            days_set.add(date)
+        return days_set
+
     def __perform_monasca_query(self, f, params):
         resp = None
         try:
@@ -114,3 +161,4 @@ class CollectorMonasca:
             # TODO Change with logger message
             print('HTTPException code=%s message=%s' % (he.code, he.message))
         return resp
+

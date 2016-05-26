@@ -46,3 +46,10 @@ def get_regions(main_config):
 # Used for load_regionNew
 def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
+
+
+def from_monasca_ts_to_datetime_ms(m_timestamp):
+    return datetime.strptime(m_timestamp, "%Y-%m-%dT%H:%M:%S.%fZ")
+
+def from_monasca_ts_to_datetime_se(m_timestamp):
+    return datetime.strptime(m_timestamp, "%Y-%m-%dT%H:%M:%SZ")
