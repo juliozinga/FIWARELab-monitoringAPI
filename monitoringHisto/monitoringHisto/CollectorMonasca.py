@@ -75,22 +75,39 @@ class CollectorMonasca:
                                                                         service_name, start_timestamp, end_timestamp)
         return avg_services
 
+    def get_process_metrics(self, regionid, process_name):
+        params = {}
+        dimensions = {'region' : regionid, 'process_name' : process_name}
+        params['dimensions'] = dimensions
+        params['name'] = 'process.pid_count'
+        return self.__perform_monasca_query(self.__monasca_client.metrics.list, params)
+
+    def get_process_hostnames_names(self, regionid, process_name):
+        metrics = self.get_process_metrics(regionid, process_name)
+        hostnames = set()
+        for metric in metrics:
+            hostnames.add(metric['dimensions']['hostname'])
+        return hostnames
+
     def get_service_processes_avg(self, regionid, avg_period, service_name, start_timestamp, end_timestamp=None):
 
         processes_names = self.get_service_processes_names(regionid, service_name)
         avg_processes = {}
         # Retrieve averaged metrics for each service based on avg_period
         for process_name in processes_names:
-            # Retrieve statistics from monasca
-            statistics = self.get_process_statistics(process_name, service_name, regionid, avg_period, start_timestamp, end_timestamp)
+            avg_processes[process_name] = dict()
+            process_hostnames = self.get_process_hostnames_names(regionid,process_name)
+            for process_hostname in process_hostnames:
+                # Retrieve statistics from monasca
+                statistics = self.get_process_statistics(process_name, process_hostname, service_name, regionid, avg_period, start_timestamp, end_timestamp)
 
-            # Retrieve measurementes from monasca
-            measurements = self.get_process_measurements(process_name, service_name, regionid, start_timestamp, end_timestamp)
+                # Retrieve measurementes from monasca
+                measurements = self.get_process_measurements(process_name, process_hostname, service_name, regionid, start_timestamp, end_timestamp)
 
-            # Remove statistics for which no measurements are present in monasca and store
-            m_days_set = self.from_dates_to_days_set(self.from_measurements_to_dates(measurements))
-            self.clean_statistics(statistics, m_days_set)
-            avg_processes[process_name] = statistics
+                # Remove statistics for which no measurements are present in monasca and store
+                m_days_set = self.from_dates_to_days_set(self.from_measurements_to_dates(measurements))
+                self.clean_statistics(statistics, m_days_set)
+                avg_processes[process_name][process_hostname] = statistics
 
         return avg_processes
 
@@ -162,7 +179,7 @@ class CollectorMonasca:
             print('HTTPException code=%s message=%s' % (he.code, he.message))
         return resp
 
-    def get_process_statistics(self, process_name, service_name, regionid, avg_period, start_timestamp, end_timestamp):
+    def get_process_statistics(self, process_name, hostname, service_name, regionid, avg_period, start_timestamp, end_timestamp):
         params = {}
         params['name'] = 'process.pid_count'
         params['start_time'] = datetime.datetime.fromtimestamp(start_timestamp).isoformat()
@@ -170,17 +187,17 @@ class CollectorMonasca:
             params['end_time'] = datetime.datetime.fromtimestamp(end_timestamp).isoformat()
         params['statistics'] = 'avg'
         params['period'] = avg_period
-        dimensions = {'region' : regionid, 'service' : service_name, 'process_name' : process_name}
+        dimensions = {'region' : regionid, 'service' : service_name, 'process_name' : process_name, 'hostname' : hostname}
         params['dimensions'] = dimensions
         return self.__perform_monasca_query(self.__monasca_client.metrics.list_statistics, params)
 
-    def get_process_measurements(self, process_name, service_name, regionid, start_timestamp, end_timestamp):
+    def get_process_measurements(self, process_name, hostname, service_name, regionid, start_timestamp, end_timestamp):
         params = {}
         params['name'] = 'process.pid_count'
         params['start_time'] = datetime.datetime.fromtimestamp(start_timestamp).isoformat()
         if end_timestamp:
             params['end_time'] = datetime.datetime.fromtimestamp(end_timestamp).isoformat()
-        dimensions = {'region' : regionid, 'service' : service_name, 'process_name' : process_name}
+        dimensions = {'region' : regionid, 'service' : service_name, 'process_name' : process_name, 'hostname' : hostname}
         params['dimensions'] = dimensions
         return self.__perform_monasca_query(self.__monasca_client.metrics.list_measurements, params)
 

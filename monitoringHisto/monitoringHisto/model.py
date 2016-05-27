@@ -38,10 +38,12 @@ class ProcessAggregation:
 class ProcessMeasurement:
     timestamp = None
     value = None
+    hostname = None
 
-    def __init__(self, timestamp=None, value=None):
+    def __init__(self, timestamp=None, value=None, hostname=None):
         self.timestamp = timestamp
         self.value = value
+        self.hostname = hostname
 
 
 class SanityCheck:

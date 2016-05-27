@@ -50,8 +50,9 @@ class PersisterMysql:
         # Build collection of (not duplicated) measurements to persist
         host_services = []
         for process in processes:
-            for measurement in process.aggregation.measurements:
-                host_service = model_mysql_adapter.from_process_measurement_to_mysql_host_service(process, measurement)
+            host_service_list = model_mysql_adapter.from_process_measurement_to_mysql_host_service(process)
+            # Exclude duplicates
+            for host_service in host_service_list:
                 if host_service not in hs_db_set:
                     host_services.append(host_service)
 
