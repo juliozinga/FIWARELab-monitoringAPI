@@ -16,20 +16,23 @@ class PersisterMysql:
     __mysql_session = None
     start = None
     end = None
+    querylimit = None
 
-    def __init__(self, db_conf, start, end):
+    def __init__(self, config, start, end):
 
-        Base = automap_base()
+        db_conf = config._sections.get('mysql')
         dbuser = db_conf.get('dbuser')
         dbpass = db_conf.get('dbpass')
         dbhost = db_conf.get('dbhost')
         dbport = db_conf.get('dbport')
         dbname = db_conf.get('dbname')
+        self.querylimit = int(db_conf.get('querylimit'))
 
         engine = create_engine("mysql://" + dbuser + ":" + dbpass + "@" + dbhost + ":" + str(dbport) + "/" + dbname)
         # engine.echo = True
 
         # Reflect the tables
+        Base = automap_base()
         Base.prepare(engine, reflect=True)
 
         # Create the session
@@ -38,11 +41,22 @@ class PersisterMysql:
         self.start = start
         self.end = end
 
-    def persist_process(self, process):  # type: Process
-        for measurement in process.aggregation.measurements:
-            host_service = model_mysql_adapter.from_process_measurement_to_mysql_host_service(process, measurement)
-            self.__mysql_session.add(host_service)
-        self._session_commit()
+    def persist_process(self, processes):  # type: Process
+
+        # Retrieve host_service list in DB to check duplication
+        hs_db_list = self._get_host_service_list_hourly(self.start, self.end)
+        hs_db_set = set(hs_db_list)
+
+        # Build collection of (not duplicated) measurements to persist
+        host_services = []
+        for process in processes:
+            for measurement in process.aggregation.measurements:
+                host_service = model_mysql_adapter.from_process_measurement_to_mysql_host_service(process, measurement)
+                if host_service not in hs_db_set:
+                    host_services.append(host_service)
+
+        # Persist measurements
+        self._smart_persist(host_services)
 
     def persist_sanity(self, sanities):  # type: SanityCheck
 
@@ -54,6 +68,7 @@ class PersisterMysql:
             if sanity_check.aggregation.code is 'd':
                 # Convert sanity measurements to host_service list
                 host_service_list = model_mysql_adapter.from_sanity_check_to_mysql_host_service_list(sanity_check)
+                # Build collection of (not duplicated) measurements to persist
                 host_service_day = []
                 for host_service in host_service_list:
                     # Spread daily sanity on the 24 hours and persist
@@ -64,6 +79,7 @@ class PersisterMysql:
                         my_host_service.aggregationType = 'h'
                         if my_host_service not in hs_db_set:
                             host_service_day.append(my_host_service)
+                # Persist measurements
                 self.__mysql_session.add_all(host_service_day)
                 self._session_commit()
             else:
@@ -126,6 +142,12 @@ class PersisterMysql:
             .filter(HostService.aggregationType == 'h') \
             .filter(HostService.timestampId >= start, HostService.timestampId <= end) \
             .all()
+
+    def _smart_persist(self, entities):
+        chunks = [entities[x:x+self.querylimit] for x in xrange(0, len(entities), self.querylimit)]
+        for chunk in chunks:
+            self.__mysql_session.add_all(chunk)
+            self._session_commit()
 
     def _session_commit(self):
         try:

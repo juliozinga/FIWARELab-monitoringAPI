@@ -69,7 +69,7 @@ def main():
     collector = CollectorMonasca(user, password, monasca_endpoint, keystone_endpoint)
 
     # Setup mysql persister
-    persister = PersisterMysql(config._sections.get('mysql'), start, end)
+    persister = PersisterMysql(config, start, end)
 
     # Get list of regions
     regions = utils.get_regions(main_config)
@@ -89,13 +89,17 @@ def main():
         # Retrieve processes aggregation
         hour_agg = model.Aggregation('h', 3600, 'avg')
         services_processes = collector.get_services_processes_avg(region, hour_agg.period, start_timestamp, end_timestamp)
-        # Adapt and persist processes aggregation
+
+        # Calculate and map processes aggregation
+        processes = []
         for service in services_processes:
             for process_name in services_processes[service].keys():
                 process_values = services_processes[service][process_name][0]
                 process = model_adapter.from_monasca_process_to_process(process_values, hour_agg)
-                persister.persist_process(process)
+                processes.append(process)
 
+        # Adapt and persist processes aggregation
+        persister.persist_process(processes)
 
     # Calculate and persist host_service daily aggregation
     persister.persist_host_service_daily_avg(start, end)
