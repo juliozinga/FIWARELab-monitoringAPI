@@ -73,7 +73,6 @@ def main():
 
     # Get list of regions
     regions = utils.get_regions(main_config)
-    # regions = []
     for region in regions:
 
         # Retrieve sanity checks aggregation
@@ -94,7 +93,7 @@ def main():
         processes = []
         for service in services_processes:
             for process_name in services_processes[service].keys():
-                process_values = services_processes[service][process_name][0]
+                process_values = services_processes[service][process_name]
                 process = model_adapter.from_monasca_process_to_process(process_values, hour_agg)
                 processes.append(process)
 

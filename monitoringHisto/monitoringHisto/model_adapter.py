@@ -9,28 +9,30 @@ from model import SanityMeasurement
 Collection of functions to map external entities to internal monitoring model (model.py)
 '''
 
-
 def from_monasca_process_to_process(process_data, aggregation):
 
     p = Process()
-    p.name = process_data['dimensions']['process_name']
-    p.service_name = process_data['dimensions']['service']
-    p.region = process_data['dimensions']['region']
+    first_host = process_data.values()[0][0]
+    p.name = first_host.get('dimensions').get('process_name')
+    p.service_name = first_host.get('dimensions').get('service')
+    p.region = first_host.get('dimensions').get('region')
 
     try:
-        timestamp_idx = process_data['columns'].index('timestamp')
-        aggregation_idx = process_data['columns'].index(aggregation.type)
+        timestamp_idx = first_host['columns'].index('timestamp')
+        aggregation_idx = first_host['columns'].index(aggregation.type)
         pa = ProcessAggregation()
-        pa.timestamp_last = process_data['id']
+        pa.timestamp_last = first_host['id']
         pa.type = aggregation.type
         pa.code = aggregation.code
         p.aggregation = pa
 
-        for measurement in process_data['statistics']:
-            pm = ProcessMeasurement()
-            pm.timestamp = measurement[timestamp_idx]
-            pm.value = measurement[aggregation_idx]
-            pa.measurements.append(pm)
+        for host in process_data.itervalues():
+            for measurement in host[0].get('statistics'):
+                pm = ProcessMeasurement()
+                pm.timestamp = measurement[timestamp_idx]
+                pm.value = measurement[aggregation_idx]
+                pm.hostname = host[0].get('dimensions').get('hostname')
+                pa.measurements.append(pm)
 
     except Exception as e:
         # TODO: Print to log file
