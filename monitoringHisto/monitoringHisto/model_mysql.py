@@ -45,11 +45,11 @@ class HostService(Base):
         return isinstance(other, self.__class__) and se == ot
 
     def __hash__(self):
-        list = (self.entityType, self.region, self.entityType, self.serviceType, self.aggregationType, self.timestampId)
+        tuple = (self.entityId, self.region, self.entityType, self.serviceType, self.aggregationType, self.timestampId)
         # se = deepcopy(self)
         # se._sa_instance_state = None
         # se.avg_Uptime = None
-        return hash(list)
+        return hash(tuple)
 
 
 class Region(Base):
