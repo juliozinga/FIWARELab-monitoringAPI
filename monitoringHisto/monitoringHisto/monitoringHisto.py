@@ -1,3 +1,4 @@
+import json
 from ConfigParser import ConfigParser
 from CollectorMonasca import CollectorMonasca
 from PersisterMysql import PersisterMysql
@@ -60,6 +61,9 @@ def main():
         print("Problem parsing main config file: {}").format(e)
         sys.exit(-1)
 
+    # Get excluded regions, if any
+    excluded_regions = json.loads(config.get("regionexclude","regions"))
+
     # Setup monasca collector
     CONF_M_SECTION = 'monasca'
     keystone_endpoint = config.get('keystone','uri')
@@ -79,6 +83,9 @@ def main():
 
     # Loop each region
     for region in regions:
+        # Skip excluded regions
+        if region in excluded_regions:
+            continue
 
         # Retrieve sanity checks aggregation
         day_agg = model.Aggregation('d', 86400, 'avg')
