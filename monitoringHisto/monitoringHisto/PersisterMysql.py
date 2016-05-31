@@ -9,6 +9,7 @@ from model import SanityCheck
 from model_mysql import *
 from copy import deepcopy, copy
 import model_mysql_adapter
+import utils
 
 
 class PersisterMysql:
@@ -157,3 +158,36 @@ class PersisterMysql:
             # TODO: Print from logger
             print "Mysql ERR: " + str(e)
             self.__mysql_session.rollback()
+
+    def persist_host_service_monthly_avg(self, start, end):
+        # Retrieve monthly host_service average for each region
+        hs_list_monthly_avg_days = self._get_host_service_list_monthly_average_from_days(start, end)
+        hs_list_monthly_avg = self._get_host_service_list_monthly(start, end)
+        hs_list_monthly_avg_set = set(hs_list_monthly_avg)
+
+        hs_list_monthly_avg = []
+        for hs_monthly_avg_res in hs_list_monthly_avg_days:
+            # Detach object from the session otherwise in import will be duplicated
+            make_transient(hs_monthly_avg_res.HostService)
+            hs = deepcopy(hs_monthly_avg_res.HostService)  # type: HostService
+            hs.aggregationType = 'm'
+            hs.timestampId = utils.get_last_day_datetime(hs.timestampId)
+            hs.avg_Uptime = hs_monthly_avg_res.monthlyUptime
+            if hs not in hs_list_monthly_avg_set:
+                hs_list_monthly_avg.append(hs)
+        self.__mysql_session.add_all(hs_list_monthly_avg)
+        self._session_commit()
+
+    def _get_host_service_list_monthly_average_from_days(self, start, end):
+        return self.__mysql_session.query(HostService, func.avg(HostService.avg_Uptime).label('monthlyUptime')) \
+            .group_by(HostService.entityId) \
+            .group_by(func.month(HostService.timestampId)) \
+            .filter(HostService.aggregationType == 'd') \
+            .filter(HostService.timestampId >= start, HostService.timestampId <= end) \
+            .all()
+
+    def _get_host_service_list_monthly(self, start, end):
+        return self.__mysql_session.query(HostService) \
+            .filter(HostService.aggregationType == 'm') \
+            .filter(HostService.timestampId >= start, HostService.timestampId <= end) \
+            .all()

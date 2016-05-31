@@ -103,6 +103,10 @@ def main():
     # Calculate and persist host_service daily aggregation
     persister.persist_host_service_daily_avg(start, end)
 
+    # Calculate and persist host_service daily aggregation
+    if start.month != end.month:
+        s_month, e_month = utils.get_range_for_daily_agg(start, end)
+        persister.persist_host_service_monthly_avg(s_month, e_month)
 
 # Argument management
 def arg_parser():
