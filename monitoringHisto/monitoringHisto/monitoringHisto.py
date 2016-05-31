@@ -71,8 +71,13 @@ def main():
     # Setup mysql persister
     persister = PersisterMysql(config, start, end)
 
-    # Get list of regions
-    regions = utils.get_regions(main_config)
+    # Get regions to work on
+    if args.region_id is None:
+        regions = utils.get_regions(main_config)
+    else:
+        regions = [args.region_id]
+
+    # Loop each region
     for region in regions:
 
         # Retrieve sanity checks aggregation
@@ -111,9 +116,10 @@ def main():
 # Argument management
 def arg_parser():
     parser = argparse.ArgumentParser(description='Monitoring proxy')
-    parser.add_argument("-c", "--config-file", help="Config file", required=False)
-    parser.add_argument("-s", "--start-day", help="2016-01-01", required=False)
-    parser.add_argument("-e", "--end-day", help="2016-01-02", required=False)
+    parser.add_argument("-c", "--config-file", help="-c Config file", required=False)
+    parser.add_argument("-s", "--start-day", help="-s 2016-01-01", required=False)
+    parser.add_argument("-e", "--end-day", help="-e 2016-01-02", required=False)
+    parser.add_argument("-r", "--region-id", help="-r Spain2", required=False)
     return parser.parse_args()
 
 
