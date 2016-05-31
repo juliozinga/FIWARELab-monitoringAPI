@@ -1,5 +1,5 @@
 from datetime import datetime, date, time, timedelta
-
+from dateutil.relativedelta import relativedelta
 
 def get_today_midnight_datetime():
     return datetime.combine(date.today(), time.min)
@@ -51,5 +51,26 @@ def str2bool(v):
 def from_monasca_ts_to_datetime_ms(m_timestamp):
     return datetime.strptime(m_timestamp, "%Y-%m-%dT%H:%M:%S.%fZ")
 
+
 def from_monasca_ts_to_datetime_se(m_timestamp):
     return datetime.strptime(m_timestamp, "%Y-%m-%dT%H:%M:%SZ")
+
+
+def get_range_for_daily_agg(start, end):
+    return start.date().replace(day=1), end.date().replace(day=1) - timedelta(1)
+
+
+def get_last_day_date(datetime):
+    next = datetime.replace(day=1) + relativedelta(months=1)
+    next = next - timedelta(1)
+    return next.date()
+
+
+def get_last_day_datetime(datetime):
+    next = datetime.replace(day=1) + relativedelta(months=1)
+    next = next - timedelta(1)
+    return next
+
+
+def get_midnight(date):
+    return datetime.combine(date, time.min)
