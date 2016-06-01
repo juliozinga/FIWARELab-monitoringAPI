@@ -55,6 +55,30 @@
       #+END_EXAMPLE
 * Additional features
 ** Specify custom period
-   It is possible to specify a custom period on which to elaborate data. This can be done using =--start-day, -s= and =--end-day, -e= as arguments to the command line.
+   It is possible to specify a custom period on which to elaborate data. 
 
-   - 20160523: Due to a bug in the period can not be present other aggregation otherwise all the calculation is skipped.
+   This can be done using =--start-day, -s= and =--end-day, -e= as arguments to the command line.
+** Specify custom region
+   It is possible to specify a custom single region on which to elaborate data. 
+
+   This can be done using =--region-id, -r= as argument to the command line.
+** Exclude specific regions
+   It is possible to *exclude* specific regions from the configuration file. This is particular useful in the transition phase when a region must be enabled for real-time monitoring but for some reasons it can not yet be enabled for historical data import.
+
+   The config section looks like this:
+   #+BEGIN_EXAMPLE
+   [regionexclude]
+   regions = []
+   # eg: regions = ["region1", "region2"]
+   #+END_EXAMPLE
+   
+** Include specific services
+   It is possible to *include* specific services from the configuration file. This is particular useful to speed-up the time of import and process data.
+
+   The config section looks like this:
+
+   #+BEGIN_EXAMPLE   
+   [servicesinclude]
+   services = []
+   # eg: services = ["compute", "networking", "block-storage", "image-service"]
+   #+END_EXAMPLE
