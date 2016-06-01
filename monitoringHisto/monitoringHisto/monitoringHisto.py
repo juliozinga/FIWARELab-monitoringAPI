@@ -64,6 +64,9 @@ def main():
     # Get excluded regions, if any
     excluded_regions = json.loads(config.get("regionexclude","regions"))
 
+    # Get included services, if any
+    included_services = json.loads(config.get("servicesinclude","services"))
+
     # Setup monasca collector
     CONF_M_SECTION = 'monasca'
     keystone_endpoint = config.get('keystone','uri')
@@ -99,7 +102,8 @@ def main():
 
         # Retrieve processes aggregation
         hour_agg = model.Aggregation('h', 3600, 'avg')
-        services_processes = collector.get_services_processes_avg(region, hour_agg.period, start_timestamp, end_timestamp)
+        services_processes = collector.get_services_processes_avg(
+            region, hour_agg.period, start_timestamp, end_timestamp, included_services)
 
         # Calculate and map processes aggregation
         processes = []

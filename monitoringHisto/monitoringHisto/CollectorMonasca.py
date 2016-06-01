@@ -67,12 +67,15 @@ class CollectorMonasca:
             names.add(process['dimensions']['process_name'])
         return names
 
-    def get_services_processes_avg(self, regionid, avg_period, start_timestamp, end_timestamp=None):
+    def get_services_processes_avg(self, regionid, avg_period, start_timestamp, end_timestamp=None, services=[]):
         services_names = self.get_services_names(regionid)
         avg_services = {}
         for service_name in services_names:
-            avg_services[service_name] = self.get_service_processes_avg(regionid, avg_period,
-                                                                        service_name, start_timestamp, end_timestamp)
+            if services and service_name not in services:
+                continue
+            else:
+                avg_services[service_name] = \
+                    self.get_service_processes_avg(regionid, avg_period, service_name, start_timestamp, end_timestamp)
         return avg_services
 
     def get_process_metrics(self, regionid, process_name):
