@@ -1907,6 +1907,10 @@ function getVm(res, statusType, authToken, regionId, vmId) {
                 tmp_disk = '';
                 tmp_sys = '';
                 tmp_hostname = '';
+                if (!Array.isArray(vmValue.attrs)) {
+                  arr = valuesToArray(vmValue.attrs);
+                  vmValue.attrs = arr;
+                }
                 if (vmValue) {
                   for (j = 0; j < vmValue.attrs.length; j++) {
                     if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("cpuLoadPct") != -1 && (vmValue.attrs[j].value)) {
@@ -1996,6 +2000,10 @@ function getVm(res, statusType, authToken, regionId, vmId) {
                                   tmp_ram = '';
                                   tmp_disk = '';
                                   tmp_sys = '';
+                                  if (!Array.isArray(vmValue.attrs)) {
+                                    arr = valuesToArray(vmValue.attrs);
+                                    vmValue.attrs = arr;
+                                  }
                                   if (vmValue) {
                                     for (j = 0; j < vmValue.attrs.length; j++) {
                                       if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("cpuLoadPct") != -1 && vmValue.attrs[j].value) {
