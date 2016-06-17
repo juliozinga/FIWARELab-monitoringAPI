@@ -262,6 +262,15 @@ def get_all_vms(regionid="ID of the region"):
         abort(404)
 
 
+@app.route('/monitoring/regions/<regionid>/vmsdetails', method='GET')
+@app.route('/monitoring/regions/<regionid>/vmsdetails/', method='GET')
+def get_all_vms(regionid="ID of the region"):
+    if is_region_on(regionid):
+        return make_request("/monitoring/regions/" + regionid + "/vmsdetails/", request=request, regionid=regionid)
+    else:
+        abort(404)
+
+
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>', method='GET')
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/', method='GET')
 def get_vm(regionid="ID of the region", vmid="ID of the vm"):

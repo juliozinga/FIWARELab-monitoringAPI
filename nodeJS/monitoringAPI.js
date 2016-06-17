@@ -91,6 +91,7 @@ localEnum = new Enum({
   'LIST_NES': 21,
   'SINGLE_NES': 22,
   'SINGLE_NES_TIME': 23,
+  "LIST_DETAILS_VMS": 24,
   'OK': 200,
   'BAD_REQUEST': '400',
   'UNAUTHORIZED': '401',
@@ -221,9 +222,14 @@ function main(config_file) {
                   }
                 }
                 /*VM*/ //monitoring/regions/{regionid}/vms    //monitoring/regions/{regionid}/vms/{vmid}{?since}
-                else if (parts.length == 4 && parts[0] == "monitoring" && parts[1] == "regions" && parts[3] == "vms") {
+                else if ( parts.length == 4 && parts[0] == "monitoring" && parts[1] == "regions" && (parts[3].indexOf('vms') === 0) ) {
                   regionId = parts[2];
-                  caseId = localEnum.LIST_VM;
+                  if ( parts[3] == "vms" ) {
+                    caseId = localEnum.LIST_VM;
+                  }
+                  else if ( parts[3] == "vmsdetails" ) {
+                    caseId = localEnum.LIST_DETAILS_VMS;
+                  }
                 } else if (parts.length == 5 && parts[0] == "monitoring" && parts[1] == "regions" && parts[3] == "vms") {
                   if (!url_parts.query.since) {
                     caseId = localEnum.SINGLE_VM;
@@ -386,6 +392,9 @@ console.log(" sinceValue: "+sinceValue)
                 break;
               case localEnum.LIST_VM.value:
                 getVmList(res, 200, authToken, regionId)
+                break;
+              case localEnum.LIST_DETAILS_VMS.value:
+                getVmsDetails(res, 200, authToken, regionId)
                 break;
               case localEnum.SINGLE_VM.value:
                 getVm(res, 200, authToken, regionId, vmId)
@@ -1960,6 +1969,312 @@ function getVm(res, statusType, authToken, regionId, vmId) {
                 if (err) {
                   sendErrorResponse(res, localEnum.NOT_FOUND.value, localEnum.NOT_FOUND.key)
                 }
+              });
+            } else if (IsDev(orgArray)) {
+              /*******************************************************/
+              /***********************Developer IN********************/
+              /*******************************************************/
+              //console.log("Developer IN")
+              Entity.findOne({
+                $and: [{
+                  "_id.type": "region"
+                }, {
+                  "_id.id": regionId
+                }]
+              }, function(err, region) {
+                if (err) {
+                  sendErrorResponse(res, localEnum.SERVER_ERROR.value, localEnum.SERVER_ERROR.key);
+                } //error
+                else if (region) {
+                  var vmList = [];
+                  for (i = 0; i < region.attrs.length; i++) {
+                    if (region.attrs[i].name.indexOf("vmList") != -1) {
+                      if (region.attrs[i].value && region.attrs[i].value.length > 0) {
+                        tmpVmList = region.attrs[i].value.split(";")
+                        if (tmpVmList && region.attrs[i].value.indexOf(vmId) != -1) {
+                          for (j = 0; j < tmpVmList.length; j++) {
+                            if (tmpVmList[j].split(",").length > 1) {
+                              compareID = parseInt((tmpVmList[j].split(","))[8]);
+                              if (actorIdArray.indexOf(compareID) > -1 && tmpVmList[j].indexOf(vmId) != -1) {
+                                vmList.push(tmpVmList[j].split(","));
+                                Entity.findOne({
+                                  $and: [{
+                                    "_id.type": "vm"
+                                  }, {
+                                    "_id.id": regionId + ':' + vmId
+                                  }]
+                                }, function(err, vmValue) {
+                                  tmp_time = '';
+                                  tmp_cpu = '';
+                                  tmp_ram = '';
+                                  tmp_disk = '';
+                                  tmp_sys = '';
+                                  if (!Array.isArray(vmValue.attrs)) {
+                                    arr = valuesToArray(vmValue.attrs);
+                                    vmValue.attrs = arr;
+                                  }
+                                  if (vmValue) {
+                                    for (j = 0; j < vmValue.attrs.length; j++) {
+                                      if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("cpuLoadPct") != -1 && vmValue.attrs[j].value) {
+                                        if (vmValue.attrs[j].value >= 1) tmp_cpu = 100;
+                                        else tmp_cpu = (100 * vmValue.attrs[j].value);
+                                      } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("usedMemPct") != -1 && vmValue.attrs[j].value) {
+                                        tmp_ram = vmValue.attrs[j].value
+                                      } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("freeSpacePct") != -1 && vmValue.attrs[j].value) {
+                                        tmp_disk = vmValue.attrs[j].value
+                                      } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("timestamp") != -1 && vmValue.attrs[j].value) {
+                                        tmp_time = vmValue.attrs[j].value
+                                      } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("sysUptime") != -1 && vmValue.attrs[j].value) {
+                                        tmp_sys = vmValue.attrs[j].value
+                                      }
+                                    } //endfor
+                                    tmp_res.measures = [{
+                                      "timestamp": tmp_time,
+                                      "percCPULoad": {
+                                        "value": tmp_cpu,
+                                        "description": "desc"
+                                      },
+                                      "percRAMUsed": {
+                                        "value": tmp_ram,
+                                        "description": "desc"
+                                      },
+                                      "percDiskUsed": {
+                                        "value": 100 - parseInt(tmp_disk),
+                                        "description": "desc"
+                                      },
+                                      "sysUptime": {
+                                        "value": tmp_sys,
+                                        "description": "desc"
+                                      }
+                                    }];
+                                    sendResponse(res, localEnum.OK.value, tmp_res);
+                                  } //endif
+                                  else {
+                                    sendErrorResponse(res, localEnum.NOT_FOUND.value, localEnum.NOT_FOUND.key)
+                                  }
+                                  if (err) {
+                                    sendErrorResponse(res, localEnum.NOT_FOUND.value, localEnum.NOT_FOUND.key)
+                                  }
+                                });
+                              } //endif actorID
+                            } //end if element
+                          } //end for vmList element
+                        } //end if
+                        else {
+                          sendErrorResponse(res, localEnum.NOT_FOUND.value, localEnum.NOT_FOUND.key)
+                        }
+                      } //end if vmList notNull
+                    } //end if vmList
+                  } //end for region attrs
+                } else {
+                  sendErrorResponse(res, localEnum.NOT_FOUND.value, localEnum.NOT_FOUND.key)
+                }
+              });
+            } //end developer
+            else sendErrorResponse(res, localEnum.NOT_FOUND.value, localEnum.NOT_FOUND.key)
+          }
+          /*********/
+        });
+      });
+    } catch (err) {
+      sendErrorResponse(res, localEnum.UNAUTHORIZED.value, localEnum.UNAUTHORIZED.key);
+    }
+  } //enfd if oauth
+  else {
+    sendErrorResponse(res, localEnum.UNAUTHORIZED.value, localEnum.UNAUTHORIZED.key);
+  }
+}
+
+function buildVmResource(vmValue) {
+  var vmId = '';
+  var tmp_time = '';
+  var tmp_cpu = '';
+  var tmp_ram = '';
+  var tmp_disk = '';
+  var tmp_sys = '';
+  var tmp_hostname = '';
+  if (!Array.isArray(vmValue.attrs)) {
+    arr = valuesToArray(vmValue.attrs);
+    vmValue.attrs = arr;
+  }
+  if (vmValue) {
+    var id = vmValue._id.id.split(':');
+    var regionId = id[0]
+    vmId = id[1]
+    for (j = 0; j < vmValue.attrs.length; j++) {
+      if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("cpuLoadPct") != -1 && (vmValue.attrs[j].value)) {
+        if (vmValue.attrs[j].value >= 1) tmp_cpu = 100;
+        else tmp_cpu = (100 * vmValue.attrs[j].value);
+      } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("usedMemPct") != -1 && (vmValue.attrs[j].value)) {
+        tmp_ram = vmValue.attrs[j].value
+      } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("freeSpacePct") != -1 && (vmValue.attrs[j].value)) {
+        tmp_disk = vmValue.attrs[j].value
+      } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("host_name") != -1 && (vmValue.attrs[j].value)) {
+        tmp_host_name = String(vmValue.attrs[j].value)
+      } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("_timestamp") != -1 && (vmValue.attrs[j].value)) {
+        //tmp_time=vmValue.attrs[j].value
+        tmp_time = new Date(Math.floor(vmValue.attrs[j].value / 1000) * 1000)
+      } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("sysUptime") != -1 && (vmValue.attrs[j].value)) {
+        tmp_sys = vmValue.attrs[j].value
+      }
+    } //endfor
+    var tmp_res = {
+      "_links": {
+        "self": {
+          "href": ""
+        }
+      },
+      "regionid": regionId,
+      "vmid": vmId,
+      "ipAddresses": [{}],
+      "measures": [{}],
+      "traps":[{
+        "description":"NYI"
+      }]
+    };
+    tmp_res._links.self = {
+      "href": "/monitoring/regions/" + regionId + "/vms/" + vmId
+    }
+    tmp_res._links.services = {
+      "href": "/monitoring/regions/" + regionId + "/vms/" + vmId + "/services"
+    }
+    tmp_res.measures = [{
+      "timestamp": "" + tmp_time,
+      "percCPULoad": {
+        "value": tmp_cpu,
+        "description": "desc"
+      },
+      "percRAMUsed": {
+        "value": tmp_ram,
+        "description": "desc"
+      },
+      "percDiskUsed": {
+        "value": (100 - parseInt(tmp_disk)),
+        "description": "desc"
+      },
+      "hostName": {
+        "value": tmp_host_name,
+        "description": "desc"
+      },
+      "sysUptime": {
+        "value": tmp_sys,
+        "description": "desc"
+      }
+    }];
+    return tmp_res;
+  }
+  else {
+    return null;
+  }
+}
+
+function getVmsDetails(res, statusType, authToken, regionId) {
+  if (authToken) {
+    access_token = authToken
+    app_id = 0;
+    var options = {
+      hostname: IDMurl,
+      port: '443',
+      path: "/user/?access_token=" + access_token,
+      method: "GET",
+      headers: {
+        'accept': 'application/json',
+        'user-group': 'none'
+      } //end of headers
+    }; //end of option
+    try {
+      https.get(options, function(responseCloud) {
+        responseCloud.on('error', function(error) {
+          console.log(error)
+          sendErrorResponse(res, localEnum.UNAUTHORIZED.value, localEnum.UNAUTHORIZED.key);
+        });
+        responseCloud.on('data', function(data) {
+          /*********/
+          var tmp_res = {
+            "_links": {
+              "self": {
+                "href": ""
+              }
+            },
+            vms: []
+          };
+          tmp_res._links.self = {
+            "href": "/monitoring/regions/" + regionId + "/vmsdetails"
+          }
+          actorIdArray = []
+          try {
+            UserJson = eval('(' + data + ')');
+          } catch (err) {
+            sendErrorResponse(res, localEnum.UNAUTHORIZED.value, localEnum.UNAUTHORIZED.key);
+          }
+          if (UserJson == null || UserJson.hasOwnProperty('error')) sendErrorResponse(res, localEnum.UNAUTHORIZED.value, localEnum.UNAUTHORIZED.key);
+          actorId = UserJson.actorId;
+          organizations = null;
+          if (UserJson.organizations) organizations = UserJson.organizations;
+          if (UserJson.app_id) app_id = UserJson.app_id;
+          //if (actorId){
+          //  actorIdArray.push(actorId);}
+          //else{
+          //  sendErrorResponse (res, localEnum.UNAUTHORIZED.value, localEnum.UNAUTHORIZED.key);
+          // }
+          if (organizations) {
+            for (it = 0; it < organizations.length; it++) {
+              if (organizations[it].actorId) {
+                actorIdArray.push(organizations[it].actorId);
+              } //if
+            } //for
+          } //if
+          orgArray = []
+          infraName = []
+          if (organizations) {
+            for (it = 0; it < organizations.length; it++) {
+              if (organizations[it].actorId) {
+                actorIdArray.push(organizations[it].actorId);
+                orgArray.push(organizations[it].id);
+                if (IsIO([organizations[it].id])) infraName.push(organizations[it].displayName);
+              } //if
+            } //for
+          }
+          //console.log(actorIdArray)
+          roles = UserJson.roles;
+          rolesArray = [];
+          if (roles) {
+            for (ir = 0; ir < roles.length; ir++) {
+              if (roles[ir].id) {
+                rolesArray.push(roles[ir].id);
+              } //endif
+            }
+            if (IsTRUSTED_APP(app_id) || IsAdmin(orgArray) || IsFedMan(orgArray) || IsSLA(orgArray) || (IsIO(orgArray) && infraName.indexOf(regionId))) {
+              // if(rolesArray.indexOf(localEnum.ADMIN.value) != -1 || rolesArray.indexOf(localEnum.FED_MAN.value) != -1){
+              /*******************************************************/
+              /******************Admin/FedMan owner IN****************/
+              /*******************************************************/
+              //console.log("Admin/FedMan owner IN")
+              //console.log(vmId)
+              tmp_cpu = '';
+              tmp_ram = '';
+              tmp_disk = '';
+              tmp_host_name = '';
+              tmp_time = '';
+              tmp_sys = '';
+              Entity.find({
+                $and: [{
+                  "_id.type": "vm"
+                }, {
+                  "_id.id": {
+                    $regex: regionId
+                  }
+                }]
+              }, function(err, vmList) {
+
+
+                  vmList.forEach(function (vmValue) {
+                    var vmResource = buildVmResource(vmValue);
+                    // Push vm in list
+                    tmp_res.vms.push(vmResource);
+                  })
+                sendResponse(res, localEnum.OK.value, tmp_res);
+                // Return response
               });
             } else if (IsDev(orgArray)) {
               /*******************************************************/
