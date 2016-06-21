@@ -9,7 +9,8 @@
     "oauth":"latest",
     "moment":"latest",
     "request":"latest",
-    "mysql":"latest"
+    "mysql":"latest",
+    "collections":"latest"
   },
   "description": "This is the code repository for the federation monitoring API component, the FIWARE tool used to provide information to user/app by a RESTFUL service.",
   "devDependencies": {},

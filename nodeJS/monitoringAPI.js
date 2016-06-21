@@ -2821,18 +2821,12 @@ function getServiceRegion(res, statusType, authToken, regionId) {
           "measures": [{}]
         };
         tmp_res._links.self.href = "/monitoring/regions/" + regionId + "/services"
-        novaActive = 0;
-        novaTot = 0;
-        cinderActive = 0;
-        cinderTot = 0;
-        quantumActive = 0;
-        quantumTot = 0;
+        var quantumActive = 0;
+        var quantumTot = 0;
         qL3 = 0;
         qL3Status = 0;
         qDhcp = 0;
         qDhcpStatus = 0;
-        glanceActive = 0;
-        glanceTot = 0;
         servActive = 0;
         servTot = 0;
         kpActive = 0;
@@ -2861,6 +2855,11 @@ function getServiceRegion(res, statusType, authToken, regionId) {
               }
             } else continue;
           }
+          var Map = require("collections/map");
+          var novaServices = new Map();
+          var cinderServices = new Map();
+          var glanceServices = new Map();
+          var neutronServices = new Map();
           for (i = 0; i < services.length; i++) {
             service = services[i];
             if (now - service.modDate < cfgObj.serviceTTL) {
@@ -2869,7 +2868,7 @@ function getServiceRegion(res, statusType, authToken, regionId) {
               if ((service._id.id).split(':')[0]) region_id = (service._id.id).split(':')[0]
               if ((service._id.id).split(':')[1]) node_id = (service._id.id).split(':')[1]
               if ((service._id.id).split(':')[2]) service_id = (service._id.id).split(':')[2]
-                /*starts to group info*/
+              /*starts to group info*/
               if (!Array.isArray(service.attrs)) {
                 arr = valuesToArray(service.attrs);
                 service.attrs = arr;
@@ -2882,18 +2881,24 @@ function getServiceRegion(res, statusType, authToken, regionId) {
                 }
                 /*Nova service*/
                 if (service_id.indexOf("nova") != -1) {
-                  novaTot++;
-                  if (servVal > 0) novaActive++;
+                  if (!novaServices.has(service_id)) novaServices.add(0, service_id);
+                  if (servVal > 0) {
+                    novaServices.set(service_id, novaServices.get(service_id) + parseInt(servVal));
+                  }
                 }
                 /*Cinder service*/
                 else if (service_id.indexOf("cinder") != -1) {
-                  cinderTot++;
-                  if (servVal > 0) cinderActive++;
+                  if (!cinderServices.has(service_id)) cinderServices.add(0, service_id);
+                  if (servVal > 0) {
+                    cinderServices.set(service_id, cinderServices.get(service_id) + parseInt(servVal));
+                  }
                 }
                 /*Glance*/
                 else if (service_id.indexOf("glance") != -1) {
-                  glanceTot++;
-                  if (servVal > 0) glanceActive++;
+                  if (!glanceServices.has(service_id)) glanceServices.add(0, service_id);
+                  if (servVal > 0) {
+                    glanceServices.set(service_id, glanceServices.get(service_id) + parseInt(servVal));
+                  }
                 }
                 /*Quantum service*/
                 else if (service_id.indexOf("quantum") != -1) {
@@ -2910,8 +2915,10 @@ function getServiceRegion(res, statusType, authToken, regionId) {
                     if (servVal > 0) quantumActive++;
                   }
                 } else if (service_id.indexOf("neutron") != -1) {
-                  quantumTot++;
-                  if (servVal > 0) quantumActive++;
+                  if (!neutronServices.has(service_id)) neutronServices.add(0, service_id);
+                  if (servVal > 0) {
+                    neutronServices.set(service_id, neutronServices.get(service_id) + parseInt(servVal));
+                  }
                 } else if (service_id.indexOf("keystone-proxy") != -1) {
                   kpTot++;
                   if (servVal > 0) kpActive++;
@@ -2940,29 +2947,42 @@ function getServiceRegion(res, statusType, authToken, regionId) {
           //console.log(sanActive)
           if (qDhcpStatus == 1) quantumActive++;
           if (qL3Status == 1) quantumActive++;
-          if (novaActive && (novaTot && novaTot > 0)) {
-            nova_c = novaActive / novaTot;
-            if (novaActive / novaTot >= 0.9) nova = "green"
-            else if (novaActive / novaTot < 0.99 && novaActive / novaTot >= 0.5) nova = "yellow"
-            else if (novaActive / novaTot < 0.5 && novaActive / novaTot > 0) nova = "red"
+          var novaTot = novaServices.length;
+          var novaActive = novaServices.filter(function(value){ if (value > 0) return true; return false;}).length;
+          if (novaTot > 0) {
+            var nova_c = novaActive / novaTot;
+            if (nova_c >= 0.9) nova = "green"
+            else if (nova_c < 0.99 && nova_c >= 0.5) nova = "yellow"
+            else if (nova_c < 0.5 && nova_c > 0) nova = "red"
           }
-          if (cinderActive && (cinderTot && cinderTot > 0)) {
-            cinder_c = cinderActive / cinderTot;
-            if (cinderActive / cinderTot >= 0.99) cinder = "green"
-            else if (cinderActive / cinderTot < 0.99 && cinderActive / cinderTot >= 0.5) cinder = "yellow"
-            else if (cinderActive / cinderTot < 0.5 && cinderActive / cinderTot > 0) cinder = "red"
+          var cinderTot = cinderServices.length;
+          var cinderActive = cinderServices.filter(function(value){ if (value > 0) return true; return false;}).length;
+          if (cinderTot > 0) {
+            var cinder_c = cinderActive / cinderTot;
+            if (cinder_c >= 0.99) cinder = "green"
+            else if (cinder_c < 0.99 && cinder_c >= 0.5) cinder = "yellow"
+            else if (cinder_c < 0.5 && cinder_c > 0) cinder = "red"
           }
           if (quantumActive && (quantumTot && quantumTot > 0)) {
-            quantum_c = quantumActive / quantumTot;
-            if (quantumActive / quantumTot >= 0.9) quantum = "green"
-            else if (quantumActive / quantumTot < 0.9 && quantumActive / quantumTot >= 0.2) quantum = "yellow"
-            else if (quantumActive / quantumTot < 0.2 && quantumActive / quantumTot > 0) quantum = "red"
+            var quantum_c = quantumActive / quantumTot;
           }
-          if (glanceActive && (glanceTot && glanceTot > 0)) {
-            glance_c = glanceActive / glanceTot;
-            if (glanceActive / glanceTot >= 0.99) glance = "green"
-            else if (glanceActive / glanceTot < 0.99 && glanceActive / glanceTot >= 0.5) glance = "yellow"
-            else if (glanceActive / glanceTot < 0.5 && glanceActive / glanceTot > 0) glance = "red"
+          else {
+            var neutronTot = neutronServices.length;
+            var neutronActive = neutronServices.filter(function(value){ if (value > 0) return true; return false;}).length;
+            if (neutronTot > 0) {
+              var quantum_c = neutronActive / neutronTot;
+            }
+          }
+          if (quantum_c >= 0.9) quantum = "green"
+          else if (quantum_c < 0.9 && quantum_c >= 0.2) quantum = "yellow"
+          else if (quantum_c < 0.2 && quantum_c > 0) quantum = "red"
+          var glanceTot = glanceServices.length;
+          var glanceActive = glanceServices.filter(function(value){ if (value > 0) return true; return false;}).length;
+          if (glanceTot > 0) {
+            var glance_c = glanceActive / glanceTot;
+            if (glance_c >= 0.99) glance = "green"
+            else if (glance_c < 0.99 && glance_c >= 0.5) glance = "yellow"
+            else if (glance_c < 0.5 && glance_c > 0) glance = "red"
           }
           if (kpActive && (kpTot && kpTot > 0)) {
             kp_c = kpActive / kpTot;
@@ -3037,11 +3057,6 @@ function getServiceRegion(res, statusType, authToken, regionId) {
           } else if (kp == "red") {
             cnt++;
           }
-          /*
-      if (san=="green"){cnt++;tot=tot+2}
-      else if (san=="yellow"){cnt++;tot=tot+1}
-      else if (san=="red"){cnt++;}
-      */
           if (cnt == 0) serv = "undefined"
           else {
             serv_c = tot / (cnt * 2);
