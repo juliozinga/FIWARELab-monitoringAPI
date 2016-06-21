@@ -6,6 +6,7 @@ from bottle.ext.mongo import MongoPlugin
 from bson.json_util import dumps
 from paste import httpserver
 from multiprocessing.pool import ThreadPool
+from multiprocessing import TimeoutError
 import argparse
 import ConfigParser
 import sys
@@ -476,15 +477,18 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
             regions_entity["total_ip"] += int(decimal.Decimal(region["measures"][0]["ipTot"]).normalize())
 
     # get IDM infos from oldMonitoring
-    regions_tmp = async_result.get()  # get the return value from thread
-    regions_entity["basicUsers"] = regions_tmp["basicUsers"]
-    regions_entity["trialUsers"] = regions_tmp["trialUsers"]
-    regions_entity["communityUsers"] = regions_tmp["communityUsers"]
-    regions_entity["totalUsers"] = regions_tmp["totalUsers"]
-    regions_entity["total_nb_users"] = regions_tmp["total_nb_users"]
-    regions_entity["totalCloudOrganizations"] = regions_tmp["totalCloudOrganizations"]
-    regions_entity["totalUserOrganizations"] = regions_tmp["totalUserOrganizations"]
-    regions_entity["total_nb_organizations"] = regions_tmp["total_nb_organizations"]
+    try:
+        regions_tmp = async_result.get(10)  # get the return value from thread
+        regions_entity["basicUsers"] = regions_tmp["basicUsers"]
+        regions_entity["trialUsers"] = regions_tmp["trialUsers"]
+        regions_entity["communityUsers"] = regions_tmp["communityUsers"]
+        regions_entity["totalUsers"] = regions_tmp["totalUsers"]
+        regions_entity["total_nb_users"] = regions_tmp["total_nb_users"]
+        regions_entity["totalCloudOrganizations"] = regions_tmp["totalCloudOrganizations"]
+        regions_entity["totalUserOrganizations"] = regions_tmp["totalUserOrganizations"]
+        regions_entity["total_nb_organizations"] = regions_tmp["total_nb_organizations"]
+    except TimeoutError:
+        print("HTTP call to JS monitoringAPI to retrieve IDM info did not respond in 10 seconds. No IDM data returned")
     return regions_entity
 
 
