@@ -843,6 +843,18 @@ def config_to_dict(section_list, config, app=None):
 
 # Main function
 def main():
+    # MonkeyPatch for use ThreadPool with Python 2.7.3. See http://goo.gl/MNefPF
+    from multiprocessing import dummy as __mp_dummy
+
+    # Now we can define a replacement and patch DummyProcess:
+    def __DummyProcess_start_patch(self):  # pulled from an updated version of Python
+        assert self._parent is __mp_dummy.current_process()  # modified to avoid further imports
+        self._start_called = True
+        if hasattr(self._parent, '_children'):
+            self._parent._children[self] = None
+        __mp_dummy.threading.Thread.start(self)  # modified to avoid further imports
+    __mp_dummy.DummyProcess.start = __DummyProcess_start_patch
+
     # Loads and manages the input arguments
     args = arg_parser()
     if args.config_file is not None:
