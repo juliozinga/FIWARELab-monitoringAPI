@@ -5,6 +5,7 @@ from pymongo import MongoClient, database
 from bottle.ext.mongo import MongoPlugin
 from bson.json_util import dumps
 from paste import httpserver
+from multiprocessing.pool import ThreadPool
 import argparse
 import ConfigParser
 import sys
@@ -93,8 +94,10 @@ def request_to_idm(username, password, keypass_url, url):
 '''
 
 
-def get_token_from_response(response):
+def get_token_from_response(request):
     auth_map = {}
+    if request is None:
+        return auth_map
     if request.headers.get("Authorization") is not None:
         token = request.headers.get("Authorization").split(" ")[1]
         auth_map["Authorization"] = "Bearer " + token
@@ -157,13 +160,27 @@ def is_region_on(regionid):
 
 
 '''
-Make the request to old monitoring api
+Make the request to appropriate monitoringAPI and update the Bottle response
 args:   request in the form: "/" or "/monitoring/regions" etc.
 return empty array if error
 '''
 
 
 def make_request(request_url, request, regionid=None):
+    my_response = do_http_get(request_url, request, regionid)
+    response.status = my_response.getcode()
+    response.set_header("Content-Type", my_response.info().getheader("Content-Type"))
+    return my_response
+
+
+'''
+Make the request to appropriate monitoringAPI and return raw http_response
+args:   request in the form: "/" or "/monitoring/regions" etc.
+return empty array if error
+'''
+
+
+def do_http_get(request_url, request, regionid=None):
     monitoring_url, monitoring_port = select_monitoring_to_forward(regionid)
     base_url = "http://" + monitoring_url + ":" + monitoring_port
     if request is None or not request.query_string:
@@ -178,8 +195,6 @@ def make_request(request_url, request, regionid=None):
         my_response = urllib2.urlopen(req)
     except urllib2.HTTPError, error:
         my_response = error
-    response.status = my_response.getcode()
-    response.set_header("Content-Type", my_response.info().getheader("Content-Type"))
     return my_response
 
 
@@ -386,6 +401,10 @@ all_region_parameters_mapping = {
     "total_ip": "ipTot"}
 
 
+def get_all_regions_from_js():
+    return json.loads(do_http_get("/monitoring/regions", request=None).read())
+
+
 def get_all_regions_from_mongo(mongodb, mongodbOld):
     regions_entity = {
         "_links": {
@@ -415,6 +434,9 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
         "total_ip_allocated": 0,
         "total_ip": 0
     }
+
+    pool = ThreadPool(processes=1)
+    async_result = pool.apply_async(get_all_regions_from_js, ()) # Start thread for async http call
 
     new_regions = app.config["main_config"]["regionNew"]
     region_list = {}
@@ -454,7 +476,7 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
             regions_entity["total_ip"] += int(decimal.Decimal(region["measures"][0]["ipTot"]).normalize())
 
     # get IDM infos from oldMonitoring
-    regions_tmp = json.loads(make_request("/monitoring/regions", request=None).read())
+    regions_tmp = async_result.get()  # get the return value from thread
     regions_entity["basicUsers"] = regions_tmp["basicUsers"]
     regions_entity["trialUsers"] = regions_tmp["trialUsers"]
     regions_entity["communityUsers"] = regions_tmp["communityUsers"]
