@@ -5,7 +5,7 @@ from pymongo import MongoClient, database
 from bottle.ext.mongo import MongoPlugin
 from bson.json_util import dumps
 from paste import httpserver
-from multiprocessing.pool import ThreadPool
+from multiprocessing.pool import Pool
 from multiprocessing import TimeoutError
 import argparse
 import ConfigParser
@@ -445,7 +445,7 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
         "total_ip": 0
     }
 
-    pool = ThreadPool(processes=1)
+    pool = Pool(processes=1)
     async_result = pool.apply_async(get_all_regions_from_js, ()) # Start thread for async http call
 
     new_regions = app.config["main_config"]["regionNew"]
@@ -498,6 +498,9 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
         regions_entity["total_nb_organizations"] = regions_tmp["total_nb_organizations"]
     except TimeoutError:
         print("HTTP call to JS monitoringAPI to retrieve IDM info did not respond in 10 seconds. No IDM data returned")
+    finally:
+        pool.close()
+        pool.join()
     return regions_entity
 
 
