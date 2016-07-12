@@ -57,7 +57,8 @@
 ** Specify custom period
    It is possible to specify a custom period on which to elaborate data. 
 
-   This can be done using =--start-day, -s= and =--end-day, -e= as arguments to the command line.
+   This can be done using =--start-day, -s= and =--end-day, -e= as arguments to the command line. Expected date format is =2016-06-06=.
+   
 ** Specify custom region
    It is possible to specify a custom single region on which to elaborate data. 
 
