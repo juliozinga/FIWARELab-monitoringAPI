@@ -566,6 +566,16 @@ def get_region_from_mongo(mongodb, regionid):
                 "percDiskUsed": 0
             }
         ],
+        "components": [
+            {
+                "ceilometer_version": "",
+                "keystone_version": "",
+                "neutron_version": "",
+                "cinder_version": "",
+                "nova_version": "",
+                "glance_version": ""
+            }
+        ],
         "id": "",
         "name": "",
         "country": "",
@@ -636,6 +646,20 @@ def get_region_from_mongo(mongodb, regionid):
                 hosts_data["ramTot"] * float(region["attrs"]["ram_allocation_ratio"]["value"]))
             if hosts_data["diskTot"] != 0:
                 region_entity["measures"][0]["percDiskUsed"] = hosts_data["diskNowTot"] / hosts_data["diskTot"]
+
+        # add components versions to region entity
+        if region["attrs"].has_key('ceilometer_version'):
+            region_entity["components"][0]["ceilometer_version"] = region["attrs"]["ceilometer_version"]["value"]
+        if region["attrs"].has_key('keystone_version'):
+            region_entity["components"][0]["keystone_version"] = region["attrs"]["keystone_version"]["value"]
+        if region["attrs"].has_key('neutron_version'):
+            region_entity["components"][0]["neutron_version"] = region["attrs"]["neutron_version"]["value"]
+        if region["attrs"].has_key('cinder_version'):
+            region_entity["components"][0]["cinder_version"] = region["attrs"]["cinder_version"]["value"]
+        if region["attrs"].has_key('nova_version'):
+            region_entity["components"][0]["nova_version"] = region["attrs"]["nova_version"]["value"]
+        if region["attrs"].has_key('glance_version'):
+            region_entity["components"][0]["glance_version"] = region["attrs"]["glance_version"]["value"]
     else:
         return None
     return region_entity
