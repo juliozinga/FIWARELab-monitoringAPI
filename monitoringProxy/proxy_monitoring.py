@@ -7,6 +7,7 @@ from bson.json_util import dumps
 from paste import httpserver
 from multiprocessing.pool import Pool
 from multiprocessing import TimeoutError
+from usageData import *
 import argparse
 import ConfigParser
 import sys
@@ -385,8 +386,13 @@ def get_image_by_region(mongodb, regionid="ID of the region", imageid="Image id"
     return json.dumps(image)
 
 
-# /monitoring/host2hosts/source;dest?since=since
-# /monitoring/host2hosts/source/dest?since=since
+@app.route('/usagedata/toptenants', method='GET')
+@app.route('/usagedata/toptenants/', method='GET')
+def get_ud_toptenants(mongodb):
+    toptenants = get_toptenants(mongodb, app.config)
+    response.set_header("Content-Type", "application/json")
+    return json.dumps(toptenants)
+
 
 '''
 Base structure to use in the list request
