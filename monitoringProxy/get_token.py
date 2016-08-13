@@ -10,7 +10,7 @@ if __name__ == '__main__':
     if len(sys.argv) != 5:
         print "This script get token from IDM."
         print "Usage:"
-        print sys.argv[0] + " <username> <password> <url> <consumer_key> <consumer_secret>"
+        print sys.argv[0] + " <username> <password> <consumer_key> <consumer_secret>"
         sys.exit(-1)
     try:
         token = get_token_auth(username=sys.argv[1], password=sys.argv[2], url=URL, consumer_key=sys.argv[3], consumer_secret=sys.argv[4], convert_to_64=False)
