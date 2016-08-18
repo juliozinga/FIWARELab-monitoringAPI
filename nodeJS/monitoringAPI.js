@@ -1928,7 +1928,7 @@ function getVm(res, statusType, authToken, regionId, vmId) {
                       tmp_ram = vmValue.attrs[j].value
                     } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("freeSpacePct") != -1 && (vmValue.attrs[j].value)) {
                       tmp_disk = vmValue.attrs[j].value
-                    } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("host_name") != -1 && (vmValue.attrs[j].value)) {
+                    } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("name") != -1 && (vmValue.attrs[j].value)) {
                       tmp_host_name = String(vmValue.attrs[j].value)
                     } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("_timestamp") != -1 && (vmValue.attrs[j].value)) {
                       //tmp_time=vmValue.attrs[j].value
@@ -2106,7 +2106,7 @@ function buildVmResource(vmValue) {
         tmp_ram = vmValue.attrs[j].value
       } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("freeSpacePct") != -1 && (vmValue.attrs[j].value)) {
         tmp_disk = vmValue.attrs[j].value
-      } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("host_name") != -1 && (vmValue.attrs[j].value)) {
+      } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("name") != -1 && (vmValue.attrs[j].value)) {
         tmp_host_name = String(vmValue.attrs[j].value)
       } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("_timestamp") != -1 && (vmValue.attrs[j].value)) {
         //tmp_time=vmValue.attrs[j].value
