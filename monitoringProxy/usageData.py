@@ -88,7 +88,7 @@ def sort_tenants(tenants):
         tmp_list.append(values)
 
     # TODO: Convert with DEBUG Logger
-    # print "Number of tenants retrieved: " + str(len(tenant_list))
+    # print "Number of tenants retrieved: " + str(len(tmp_list))
 
     # Sort on vms num
     sorted_tenant_list = sorted(tmp_list, key=lambda k: k['vmsActiveNum'], reverse=True)
