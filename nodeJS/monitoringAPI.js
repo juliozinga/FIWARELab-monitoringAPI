@@ -1916,11 +1916,11 @@ function getVm(res, statusType, authToken, regionId, vmId) {
                 tmp_disk = '';
                 tmp_sys = '';
                 tmp_hostname = '';
-                if (!Array.isArray(vmValue.attrs)) {
-                  arr = valuesToArray(vmValue.attrs);
-                  vmValue.attrs = arr;
-                }
                 if (vmValue) {
+                  if (!Array.isArray(vmValue.attrs)) {
+                    arr = valuesToArray(vmValue.attrs);
+                    vmValue.attrs = arr;
+                  }
                   for (j = 0; j < vmValue.attrs.length; j++) {
                     if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("cpuLoadPct") != -1 && (vmValue.attrs[j].value)) {
                       if (vmValue.attrs[j].value >= 1) tmp_cpu = 100;
@@ -2009,11 +2009,11 @@ function getVm(res, statusType, authToken, regionId, vmId) {
                                   tmp_ram = '';
                                   tmp_disk = '';
                                   tmp_sys = '';
-                                  if (!Array.isArray(vmValue.attrs)) {
-                                    arr = valuesToArray(vmValue.attrs);
-                                    vmValue.attrs = arr;
-                                  }
                                   if (vmValue) {
+                                    if (!Array.isArray(vmValue.attrs)) {
+                                      arr = valuesToArray(vmValue.attrs);
+                                      vmValue.attrs = arr;
+                                    }
                                     for (j = 0; j < vmValue.attrs.length; j++) {
                                       if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("cpuLoadPct") != -1 && vmValue.attrs[j].value) {
                                         if (vmValue.attrs[j].value >= 1) tmp_cpu = 100;
@@ -2093,11 +2093,11 @@ function buildVmResource(vmValue) {
   var tmp_disk = '';
   var tmp_sys = '';
   var tmp_hostname = '';
-  if (!Array.isArray(vmValue.attrs)) {
-    arr = valuesToArray(vmValue.attrs);
-    vmValue.attrs = arr;
-  }
   if (vmValue) {
+    if (!Array.isArray(vmValue.attrs)) {
+      arr = valuesToArray(vmValue.attrs);
+      vmValue.attrs = arr;
+    }
     var id = vmValue._id.id.split(':');
     var regionId = id[0]
     vmId = id[1]
@@ -2315,11 +2315,11 @@ function getVmsDetails(res, statusType, authToken, regionId) {
                                   tmp_ram = '';
                                   tmp_disk = '';
                                   tmp_sys = '';
-                                  if (!Array.isArray(vmValue.attrs)) {
-                                    arr = valuesToArray(vmValue.attrs);
-                                    vmValue.attrs = arr;
-                                  }
                                   if (vmValue) {
+                                    if (!Array.isArray(vmValue.attrs)) {
+                                      arr = valuesToArray(vmValue.attrs);
+                                      vmValue.attrs = arr;
+                                    }
                                     for (j = 0; j < vmValue.attrs.length; j++) {
                                       if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("cpuLoadPct") != -1 && vmValue.attrs[j].value) {
                                         if (vmValue.attrs[j].value >= 1) tmp_cpu = 100;
