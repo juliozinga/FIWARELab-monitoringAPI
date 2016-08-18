@@ -1923,8 +1923,7 @@ function getVm(res, statusType, authToken, regionId, vmId) {
                   }
                   for (j = 0; j < vmValue.attrs.length; j++) {
                     if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("cpuLoadPct") != -1 && (vmValue.attrs[j].value)) {
-                      if (vmValue.attrs[j].value >= 1) tmp_cpu = 100;
-                      else tmp_cpu = (100 * vmValue.attrs[j].value);
+                      tmp_cpu = vmValue.attrs[j].value;
                     } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("usedMemPct") != -1 && (vmValue.attrs[j].value)) {
                       tmp_ram = vmValue.attrs[j].value
                     } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("freeSpacePct") != -1 && (vmValue.attrs[j].value)) {
@@ -2016,8 +2015,7 @@ function getVm(res, statusType, authToken, regionId, vmId) {
                                     }
                                     for (j = 0; j < vmValue.attrs.length; j++) {
                                       if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("cpuLoadPct") != -1 && vmValue.attrs[j].value) {
-                                        if (vmValue.attrs[j].value >= 1) tmp_cpu = 100;
-                                        else tmp_cpu = (100 * vmValue.attrs[j].value);
+                                        tmp_cpu = vmValue.attrs[j].value;
                                       } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("usedMemPct") != -1 && vmValue.attrs[j].value) {
                                         tmp_ram = vmValue.attrs[j].value
                                       } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("freeSpacePct") != -1 && vmValue.attrs[j].value) {
@@ -2103,8 +2101,7 @@ function buildVmResource(vmValue) {
     vmId = id[1]
     for (j = 0; j < vmValue.attrs.length; j++) {
       if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("cpuLoadPct") != -1 && (vmValue.attrs[j].value)) {
-        if (vmValue.attrs[j].value >= 1) tmp_cpu = 100;
-        else tmp_cpu = (100 * vmValue.attrs[j].value);
+        tmp_cpu = vmValue.attrs[j].value;
       } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("usedMemPct") != -1 && (vmValue.attrs[j].value)) {
         tmp_ram = vmValue.attrs[j].value
       } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("freeSpacePct") != -1 && (vmValue.attrs[j].value)) {
@@ -2322,8 +2319,7 @@ function getVmsDetails(res, statusType, authToken, regionId) {
                                     }
                                     for (j = 0; j < vmValue.attrs.length; j++) {
                                       if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("cpuLoadPct") != -1 && vmValue.attrs[j].value) {
-                                        if (vmValue.attrs[j].value >= 1) tmp_cpu = 100;
-                                        else tmp_cpu = (100 * vmValue.attrs[j].value);
+                                        tmp_cpu = vmValue.attrs[j].value;
                                       } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("usedMemPct") != -1 && vmValue.attrs[j].value) {
                                         tmp_ram = vmValue.attrs[j].value
                                       } else if (vmValue.attrs[j].name && vmValue.attrs[j].name.indexOf("freeSpacePct") != -1 && vmValue.attrs[j].value) {
