@@ -281,7 +281,7 @@ def get_all_vms(regionid="ID of the region"):
 
 @app.route('/monitoring/regions/<regionid>/vmsdetails', method='GET')
 @app.route('/monitoring/regions/<regionid>/vmsdetails/', method='GET')
-def get_all_vms(regionid="ID of the region"):
+def get_all_vmsdetails(regionid="ID of the region"):
     if is_region_on(regionid):
         return make_request("/monitoring/regions/" + regionid + "/vmsdetails/", request=request, regionid=regionid)
     else:
