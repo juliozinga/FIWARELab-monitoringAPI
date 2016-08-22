@@ -778,8 +778,17 @@ def get_cursor_vms_from_mongo(mongodb, regionid):
 
 
 def get_cursor_active_vms_from_mongo(mongodb, regionid):
-    vms = mongodb[app.config["mongodb"]["collectionname"]].find(
-        {"$and": [{"_id.type": "vm"}, {"_id.id": {"$regex": regionid + ':'}}, {"attrs.status.value": "active"}]})
+
+    now = utils.get_timestamp()
+    ts_limit = now - int(app.config["api"]["vmTTL"])
+    if strtobool(app.config["api"]["vmCheckActive"]):
+        vms = mongodb[app.config["mongodb"]["collectionname"]].find(
+            {"$and":[{"_id.type":"vm"},{"_id.id": {"$regex": regionid + ':'}},
+            {"attrs.status.value":"active"},{"modDate":{"$gt":ts_limit}}]}
+        )
+    else:
+        vms = mongodb[app.config["mongodb"]["collectionname"]] \
+            .find({"$and":[{"_id.type":"vm"},{"_id.id": {"$regex": regionid + ':'}},{"modDate":{"$gt":ts_limit}}]})
     if vms.count() >= 1:
         return vms
     else:
