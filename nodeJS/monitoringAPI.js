@@ -2254,6 +2254,8 @@ function getVmsDetails(res, statusType, authToken, regionId) {
               tmp_host_name = '';
               tmp_time = '';
               tmp_sys = '';
+              new Date().getTime();
+              var now = (Math.floor(Date.now() / 1000));
               Entity.find({
                 $and: [{
                   "_id.type": "vm"
@@ -2266,9 +2268,11 @@ function getVmsDetails(res, statusType, authToken, regionId) {
 
 
                   vmList.forEach(function (vmValue) {
-                    var vmResource = buildVmResource(vmValue);
-                    // Push vm in list
-                    tmp_res.vms.push(vmResource);
+                    if (now - vmValue.modDate < cfgObj.vmTTL) {
+                      var vmResource = buildVmResource(vmValue);
+                      // Push vm in list
+                      tmp_res.vms.push(vmResource);
+                    }
                   })
                 sendResponse(res, localEnum.OK.value, tmp_res);
                 // Return response
