@@ -70,6 +70,10 @@ def _tenant_update(tenant, vm):
         tenant['tmpSumRamPct'] += float(vm["attrs"]["usedMemPct"]["value"])
         tenant["ramUsedPct"] = round(tenant['tmpSumRamPct'] / tenant["vmsActiveNum"], 4)
 
+    region = _region_from_vm(vm)
+    if region not in tenant['regions']:
+        tenant['regions'].append(region)
+
 '''
 Sort tenants bsaed on sort criteria and keep first X, based on conf (tenants_num)
 '''
@@ -122,3 +126,7 @@ Check the validity of the sorting parameter
 def valid_sort(sort_criteria):
     valid_sorts = {"vmsActiveNum", "ramUsedPct" , "cpuUsedPct", "ramAllocatedTot", "vcpuAllocatedTot"}
     return sort_criteria in valid_sorts;
+
+def _region_from_vm(vm):
+    vm_id = vm["_id"]["id"].split(":")
+    return vm_id[0]

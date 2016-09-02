@@ -19,5 +19,7 @@ tenant_resource = {
     "ramUsedPct": 0,
     "cpuUsedPct": 0,
     "tmpSumCpuPct": 0,
-    "tmpSumRamPct": 0
+    "tmpSumRamPct": 0,
+    "regions": [
+    ]
 }
