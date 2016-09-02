@@ -401,7 +401,11 @@ def get_image_by_region(mongodb, regionid="ID of the region", imageid="Image id"
 @app.route('/usagedata/toptenants', method='GET')
 @app.route('/usagedata/toptenants/', method='GET')
 def get_ud_toptenants(mongodb):
-    toptenants = get_toptenants(mongodb, app.config)
+    sort_criteria = request.params.getone("sort")
+    if valid_sort(sort_criteria):
+        toptenants = get_toptenants(mongodb, app.config, sort_criteria)
+    else:
+        toptenants = get_toptenants(mongodb, app.config)
     response.set_header("Content-Type", "application/json")
     return json.dumps(toptenants)
 

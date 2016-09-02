@@ -10,7 +10,7 @@ Retrieve usage data of top tenants as a resoruce defined in the model
 '''
 
 
-def get_toptenants(mongodb, app_config):
+def get_toptenants(mongodb, app_config, sort_criteria="vmsActiveNum"):
     # Share globally few configurations
     global obfuscate_tid
     obfuscate_tid =  strtobool(app_config["usageData"]["obfuscate_tenant_id"])
@@ -25,12 +25,14 @@ def get_toptenants(mongodb, app_config):
     else:
         vms = mongodb[app_config["mongodb"]["collectionname"]]\
             .find({"$and":[{"_id.type":"vm"},{"modDate":{"$gt":ts_limit}}]})
-    tenants = tenants_from_vms(vms)
-    usagedata_resources.toptenants_resource["_embedded"]["tenants"] = tenants
+    tenants = _tenants_from_vms(vms)
+    tenant_list = _pretty_tenant_list(tenants)
+    sorted_tenants = _sort_tenants(tenant_list, sort_criteria)
+    usagedata_resources.toptenants_resource["_embedded"]["tenants"] = sorted_tenants
     return usagedata_resources.toptenants_resource
 
 
-def tenants_from_vms(vms):
+def _tenants_from_vms(vms):
     # TODO: Convert with DEBUG Logger
     # print "Number of vms analysed: " + str(vms.count())
     tenants = {}
@@ -41,19 +43,17 @@ def tenants_from_vms(vms):
         tid = vm["attrs"]["tenant_id"]["value"]
         if tid in tenants:
             tenant = tenants.get(tid)
-            tenant_update(tenant, vm)
+            _tenant_update(tenant, vm)
         else:
             tenant = copy.deepcopy(usagedata_resources.tenant_resource)
             # tenant["tenantId"] = tid
-            tenant_update(tenant, vm)
+            _tenant_update(tenant, vm)
             tenants[tid] = tenant
 
-    tenant_list = sort_tenants(tenants)
-
-    return tenant_list
+    return tenants
 
 
-def tenant_update(tenant, vm):
+def _tenant_update(tenant, vm):
 
     tenant["tenantId"] = vm["attrs"]["tenant_id"]["value"]
     tenant["vmsActiveNum"] += 1
@@ -71,13 +71,38 @@ def tenant_update(tenant, vm):
         tenant["ramUsedPct"] = round(tenant['tmpSumRamPct'] / tenant["vmsActiveNum"], 4)
 
 '''
-Sort, obfuscate, clean and convert dict structure into a list
+Sort tenants bsaed on sort criteria and keep first X, based on conf (tenants_num)
 '''
 
 
-def sort_tenants(tenants):
+def _sort_tenants(tenant_list, sort_criteria):
+
+    # TODO: Convert with DEBUG Logger
+    # print "Number of tenants retrieved: " + str(len(tmp_list))
+
+    # Sort based on sort_criteria
+    sorted_tenant_list = sorted(tenant_list, key=lambda k: k[sort_criteria], reverse=True)
+
+    # Remove lasts based on conf
+    sorted_tenant_list = sorted_tenant_list[:tenants_num-1]
+
+    # Assign a rank
+    i = 0
+    for t in sorted_tenant_list:
+        i += 1
+        t["ranking"] = i
+
+    return sorted_tenant_list
+
+
+'''
+Obfuscate, clean and convert dict structure into a list
+'''
+
+
+def _pretty_tenant_list(tenants_dict):
     tmp_list = []
-    for key, values in tenants.iteritems():
+    for key, values in tenants_dict.iteritems():
         # Remove temporary fields
         values.pop("tmpSumCpuPct")
         values.pop("tmpSumRamPct")
@@ -86,20 +111,14 @@ def sort_tenants(tenants):
             values["tenantId"] = values["tenantId"][:-6] + "XXXXXX"
         # Convert to list
         tmp_list.append(values)
+    return tmp_list
 
-    # TODO: Convert with DEBUG Logger
-    # print "Number of tenants retrieved: " + str(len(tmp_list))
 
-    # Sort on vms num
-    sorted_tenant_list = sorted(tmp_list, key=lambda k: k['vmsActiveNum'], reverse=True)
+'''
+Check the validity of the sorting parameter
+'''
 
-    # Remove lasts based on conf
-    tenant_list = sorted_tenant_list[:tenants_num-1]
 
-    # Assign a rank
-    i=0
-    for t in tenant_list:
-        i = i + 1
-        t["ranking"] = i
-
-    return tenant_list
+def valid_sort(sort_criteria):
+    valid_sorts = {"vmsActiveNum", "ramUsedPct" , "cpuUsedPct", "ramAllocatedTot", "vcpuAllocatedTot"}
+    return sort_criteria in valid_sorts;
