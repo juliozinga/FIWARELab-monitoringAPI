@@ -147,6 +147,18 @@ def is_region_new(regionid):
 
 
 '''
+Return True if region use new monitoring system false otherwise
+'''
+
+
+def get_region_name(regionid):
+    region_name = app.config["main_config"]["regionNames"][regionid]
+    if not region_name:
+        return regionid
+    return region_name
+
+
+'''
 Return True if region is present (enabled) in configuration file
 '''
 
@@ -618,7 +630,7 @@ def get_region_from_mongo(mongodb, regionid):
             region_entity["measures"][0]["cpu_allocation_ratio"] = region["attrs"]["cpu_allocation_ratio"]["value"]
 
         region_entity["id"] = region["_id"]["id"]
-        region_entity["name"] = region["_id"]["id"]
+        region_entity["name"] = get_region_name(regionid)
         if region["attrs"].has_key('location'):
             region_entity["country"] = region["attrs"]["location"]["value"]
         if region["attrs"].has_key('latitude'):
@@ -942,6 +954,7 @@ def main():
         main_config.read(mainconfig_file)
         app.config['main_config'] = dict()
         app.config['main_config']['regionNew'] = dict(main_config._sections['regionNew'])
+        app.config['main_config']['regionNames'] = dict(main_config._sections['regionNames'])
     except Exception as e:
         print("Problem parsing main config file: {}").format(e)
         sys.exit(-1)
