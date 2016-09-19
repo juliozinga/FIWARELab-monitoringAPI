@@ -619,7 +619,7 @@ def get_region_from_mongo(mongodb, regionid):
 
         region_entity["_links"]["self"]["href"] = "/monitoring/regions/" + regionid
         region_entity["_links"]["hosts"]["href"] = "/monitoring/regions/" + regionid + "/hosts"
-        d = datetime.datetime.fromtimestamp(int(region["modDate"]))
+        d = datetime.datetime.fromtimestamp(int(region["modDate"]), utils.UTC())
         region_entity["measures"][0]["timestamp"] = d.strftime("%Y-%m-%dT%H:%M:%S.000Z")
         if region["attrs"].has_key('ipUsed'):
             region_entity["measures"][0]["ipAssigned"] = region["attrs"]["ipUsed"]["value"]
