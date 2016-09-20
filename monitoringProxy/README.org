@@ -1,0 +1,6 @@
+* FIWARE monitoringProxy
+
+  A [[http://bottlepy.org/docs/dev/index.html][Python Bottle]] based web-service part of the FIWARE monitoringAPI
+
+  /This web-service exposes, through a stable and documented API, the FIWARE monitoring informations retrieved querying other components on the underlying FIWARE monitoring. In particular this service has been implemented following a [[https://en.wikipedia.org/wiki/Facade_pattern][Facade pattern]] in order to rigorously respect the documented API, to hide the lower layers, standardising the access to monitoring information by clients and to adapt the monitoring API to the new FIWARE monitoring data model./
+  

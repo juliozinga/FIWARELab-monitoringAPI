@@ -1,0 +1,52 @@
+* NodeJS
+  A [[https://nodejs.org/][NodeJS]] based web-service part of the FIWARE monitoringAPI
+  
+  /This web-service was the previous main monitoring API, which is still in use to retrieve data when using few APIs not completely migrated./
+
+** Configuration file
+   The configuration used by the Federation Monitoring API component is stored in the api.conf file. This fiel contains several fields, which values can be customized:
+   #+BEGIN_EXAMPLE json
+   {
+    "KPurl":"xxx",
+    "KPusr":"xxx",
+    "KPpwd":"xxx",
+    "IDMurl":"xxx",
+    "mysql_host": "xxx",
+    "mysql_user":"xxx",
+    "mysql_password":"xxx",
+    "mysql_database":"xxx",
+    "apiIPaddress":"0.0.0.0",
+    "apiPort": "000",
+    "mongoIP":"000",
+    "mongoDBname":"xxx",
+    "regionTTL":"000",
+    "hostTTL":"000",
+    "vmTTL":"000",
+    "serviceTTL":"000",
+    "h2hTTL":"000",
+    "defaultTTL":"000",
+    "trusted_app" : ["app1", "app2"]
+    }
+   #+END_EXAMPLE
+    
+   These fields are mandatory, and they are used by the API filter and retrieve the information.
+   - KPurl: set the KeyStone URL or IP
+   - KPusr: set the KeyStone username that has been provided by the KP administrator
+   - KPpwd: set the KeyStone password
+   - IDMurl:set the Identity Manager IP address or URL
+   - mysql_host: set the mysql hostname
+   - mysql_user: set the mysql authorized user
+   - mysql_password: set the mysql authorized password
+   - mysql_database: set the mysql name of the database
+   - apiIPaddress: set the API IP on which API should run (usually "0.0.0.0")
+   - apiPort: set the API port
+   - mongoIP: set the mongo IP address
+   - mongoDBname: set the mongo database name
+   - regionTTL: set the valid time-range for the information of a region
+   - hostTTL: set the valid time-range for the information of a host
+   - vmTTL: set the valid time-range for the information of a vm
+   - serviceTTL: set the valid time-range for the information of a service
+   - h2hTTL: set the valid time-range for the information of a host2host
+   - defaultTTL: set the default valid time-range for a generic information
+   - trusted_app: list of valid app id
+     

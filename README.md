@@ -11,144 +11,153 @@ or things you think should be included but are not. You can use [github issues](
 
 ## Description
 
-Federation Monitoring API is a [NodeJS](https://nodejs.org/) application that can be easily configured and modified. This application is based on Node.js: an open source, cross-platform runtime environment for server-side and networking applications. This application is a part of the structured monitoring system developed inside the FIWARE project. This component retrieves information by several distributed tools (i.e. Orion, Cosmos,) and export them to the end-users. Moreover he API service is protected by a [proxy](https://github.com/ging/fi-ware-pep-proxy) that evaluates the user's credentials through an oauth2 system.
-![alt text](http://wiki.fi-xifi.eu/wiki/images/thumb/c/cf/Federation_Monitoring.png/800px-Federation_Monitoring.png "The federation monitoring architecture")
-API provides information, for example about the [Openstack](https://www.openstack.org/) installation, the CPU usage (CPU, RAM, DISK). The information schema that can be provided by the Federation Monitoring API is the presented in this image.
+Federation Monitoring API is mainly composed by two modules:
+
+- **monitoringProxy**: A [Python Bottle](http://bottlepy.org/docs/dev/index.html) based web-service
+ *This web-service exposes, through a stable and documented API, the FIWARE monitoring informations retrieved querying other components on the underlying FIWARE monitoring. In particular this service has been implemented following a [Facade pattern](https://en.wikipedia.org/wiki/Facade_pattern) in order to rigorously respect the documented API, to hide the lower layers, standardising the access to monitoring information by clients and to adapt the monitoring API to the new FIWARE monitoring data model.*
+- **nodeJS**: A [NodeJS](https://nodejs.org/) based web-service
+ *This web-service was the previous main monitoring API, which is still in use to retrieve data when using few APIs not completely migrated.*
+
+Moreover a third module, not strictly related with the API service, has been added to this project repository:
+
+- **monitoringHisto**: A [Python](https://www.python.org/) based stand-alone application
+ *This application is in charge of collecting, aggregating and storing periodically historical information from FIWARE Monasca API.*
+
+The following picture depict the main architecture of the monitoringAPI system. It is possibile to see that the current architecture supports two different FIWARE federation monitoring: the first and the second enhanced version. This is needed to grant a lightweight and gradual migration process.
+
+![FIWARE monitoringAPI architecture](https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/raw/master/docs/raw/monitoringAPI-architecture.png "FIWARE monitoringAPI architecture")
+
+The API service is protected by a [proxy](https://github.com/ging/fi-ware-pep-proxy) that evaluates the user's credentials through OAuth 2.0.
+
+API provides status information about the [Openstack](https://www.openstack.org/) installation for each federated region, not only about CPU, RAM and DISK usage but also metrics regarding the status of the services and its versions. The information schema that can be provided by the Federation Monitoring API is the presented in this image.
+
 ![alt text](http://wiki.fi-xifi.eu/wiki/images/thumb/5/5d/Monitoring-dataModel.png/800px-Monitoring-dataModel.png "The federation monitoring API information schema")
 
-An overview of the API information is described at this [page](http://docs.federationmonitoring.apiary.io/)
-
-The official software repository (on GitHub) is composed by four files:
-* monitoringAPI.js: the main program file
-* api.cfg: the configuration file
-* package.json: the dependencies file
-* LICENSE: the license file
-* README.md: the file with the main information
+A detailed overview of the API contract is described at this [page](http://docs.federationmonitoring.apiary.io/)
 
 [Top](#top)
 
 ## Features Implemented
 
-This tool provides information about the platform and export it through API interface. Users can obtain information about
+Through the API interface users can obtain information about:
+
 * Region (%RAM, %CPU, %DISK, #IP, ...)
- * *list of regions*
- * *live information about a region*
- * *historical information about a region*
+    * *list of regions*
+    * *live information about a region*
+    * *historical information about a region*
 * Virtual machine (%RAM, %CPU, %DISK, ... )
- * *list of VMs per region*
- * *live information about a VM*
- * *historical information about a VM*
+    * *list of VMs per region*
+    * *live information about a VM*
+    * *historical information about a VM*
 * Host (%RAM, %CPU, %DISK, ... )
- * *list of hosts per region*
- * *live information about a host*
- * *historical information about a host*
+    * *list of hosts per region*
+    * *live information about a host*
+    * *historical information about a host*
 * Host service (nova, cinder, sanity_check, ...)
- * *live information about the host_services per region*
- * *historical information about the host_services per region*
+    * *live information about the host_services per region*
+    * *historical information about the host_services per region*
+* FIWARE Usage data
+    * *Aggregated data about the resource usage of first X tenants*
 
 The monitoringAPI, if integrated with the [FIWARE pep Proxy](https://github.com/ging/fi-ware-pep-proxy) will provide also an authentication/autorization system, that filters the available information taking into account the user's role inside the FIWARE project.
 
-A complete reference about all the API can be found [here](http://docs.federationmonitoring.apiary.io/)
+Please refer to the specific [documentation](https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/tree/master/monitoringProxy) regarding the features available from the monitoringHisto module.
+
 
 [Top](#top)
 
 ## Installation Manual
 
-The recommended steps for installing this tool are:
-
-1. install NodeJs (and also [npm](https://www.npmjs.com/) ), there are several guides or tutorials about that. User can install it from the official repositories: ["Nodejs download section"](https://nodejs.org/download/)
-2. configure the file api.cfg with the proper values (i.e. samples temporal validity range, KP endpoint information)
-3. install the dependencies
-  * npm install
-4. run the restful Nodejs application:
-  * node monitoringAPI.js <config file>
-
 ### Requirements
-
 Required softwares are:
-* [git](https://github.com/) downloads and manages the software
-* [NodeJS](https://nodejs.org/), the server side runtime environment
-* [npm](https://www.npmjs.com/), the packages manager
-  * the additional nodejs packages:
-    * body-parser (nodejs package)
-    * mongoose (nodejs package)
-    * stylus (nodejs package)
-*  the [FIWARE pep Proxy](https://github.com/ging/fi-ware-pep-proxy) used in order to protect the API
-* the [mysql](https://www.mysql.com/) database
-* [mongoDB](https://www.mongodb.org/)
 
-In order to obtain a complete federation monitoring system please consider to install all the XIFI federation monitoring components in your region, following the official  [manual](http://wiki.fi-xifi.eu/Public:Federation_Monitoring#Installation_Manual)
+ * [git](https://github.com/) downloads and manages the software
+ * [NodeJS](https://nodejs.org/), the server side runtime environment
+ * [npm](https://www.npmjs.com/), the packages manager
+     * the additional nodejs packages: body-parser (nodejs package)
+     * mongoose (nodejs package)
+     * stylus (nodejs package)
+ *  the [FIWARE pep Proxy](https://github.com/ging/fi-ware-pep-proxy) used in order to protect the API
+ * the [screen](https://www.gnu.org/software/screen/) utility
+ * the [mysql](https://www.mysql.com/) database
+ * [mongoDB](https://www.mongodb.org/)
+ * [Python](https://www.python.org/) interpreter
+ * Python [virtualenvwrapper](https://virtualenvwrapper.readthedocs.io/en/latest/)
+   utility
 
-### Installation
-
-Once the main packages are downloaded, user has to install the NodeJS and the additional modules. This can be done by using npm inside the installation folder:
-* npm install
+In order to obtain a complete federation monitoring system please consider to install all the FIWARE federation monitoring components in your region, following the official  [manual](https://github.com/SmartInfrastructures/ceilometer-plugin-fiware)
 
 ### Configuration file
+A [main configuration file](https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/blob/master/conf/config.ini) is shared between all modules and it contains the list of available regions. For each region is specified the current status (`True -> New FIWARE monitoring`, `False -> Old FIWARE monitoring`) and the region canonical name.
+Moreover, an additional configuration file is specified for each module and it contains specific configuration parameters for it and can be used as a prototype in order to create the main configuration file which has to be passed to the module on the command line at startup.
 
-The configuration used by the Federation Monitoring API component is stored in the api.conf file. This fiel contains several fields, which values can be customized:
 
-    {
-    "KPurl":"xxx",
-    "KPusr":"xxx",
-    "KPpwd":"xxx",
-    "IDMurl":"xxx",
-    "mysql_host": "xxx",
-    "mysql_user":"xxx",
-    "mysql_password":"xxx",
-    "mysql_database":"xxx",
-    "apiIPaddress":"0.0.0.0",
-    "apiPort": "000",
-    "mongoIP":"000",
-    "mongoDBname":"xxx",
-    "regionTTL":"000",
-    "hostTTL":"000",
-    "vmTTL":"000",
-    "serviceTTL":"000",
-    "h2hTTL":"000",
-    "defaultTTL":"000",
-    "trusted_app" : ["app1", "app2"]
-    }
+### monitoringAPI
+This service is composed by [nodeJS](https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/tree/master/nodeJS) and [monitoringProxy](https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/tree/master/monitoringProxy) packages, therefore the recommended steps include the installation of both services:
 
-These fields are mandatory, and they are used by the API filter and retrieve the information.
-* KPurl: set the KeyStone URL or IP
-* KPusr: set the KeyStone username that has been provided by the KP administrator
-* KPpwd: set the KeyStone password
-* IDMurl:set the Identity Manager IP address or URL
-* mysql_host: set the mysql hostname
-* mysql_user: set the mysql authorized user
-* mysql_password: set the mysql authorized password
-* mysql_database: set the mysql name of the database
-* apiIPaddress: set the API IP on which API should run (usually "0.0.0.0")
-* apiPort: set the API port
-* mongoIP: set the mongo IP address
-* mongoDBname: set the mongo database name
-* regionTTL: set the valid time-range for the information of a region
-* hostTTL: set the valid time-range for the information of a host
-* vmTTL: set the valid time-range for the information of a vm
-* serviceTTL: set the valid time-range for the information of a service
-* h2hTTL: set the valid time-range for the information of a host2host
-* defaultTTL: set the default valid time-range for a generic information
-* trusted_app: list of valid app id 
-### How to run it
+1. Install NodeJs (and also [npm](https://www.npmjs.com/) ), there are several guides or tutorials about that. User can install it from the official repositories: ["Nodejs download section"](https://nodejs.org/download/)
+2. Copy from nodeJS folder the `api.cfg` in `api-password.cfg` and customise it with the proper values (i.e. samples temporal validity range, KP endpoint information)
+3. Install the dependencies
 
-Once installed, the application can be run manually as:
-* node monitoringAPI.js <config file>
+    ```
+    cd nodeJS
+    npm install
+    ```
+4. Install the [Python](https://www.python.org/) interpreter
+5. Install the Python [virtualenvwrapper](https://virtualenvwrapper.readthedocs.io/en/latest/) utility
+6. Create a virtual environment and access to it
 
-However expert users can setup it a service (*i.e. using nohup*).
-This tool can help the normal user to put the application working "like" a linux service. For more information have a look to this link:
-* [nohup](http://linux.die.net/man/1/nohup) linux background
+    ```
+    mkvirtualenv monitoringProd
+    workon monitoringProd
+    ```
+7. Install the required dependencies
+
+    ```
+    cd monitoringProxy
+    pip install -r requirements.txt
+    ```
+8. Copy from monitoringProxy folder the `config.ini` in `config-password.ini` and customise it with the proper values.
+9. Start the services, see below for details.
+
+### monitoringHisto
+Please refer to the specific [documentation](https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/tree/master/monitoringProxy) regarding the installation of this module.
+
+### Start the web-service
+
+Once installed, the two applications can be manually run respectively as follow:
+*As a requirement, in order to enable the APIs that requires authentication, the pep-proxy service should already run*
+
+**monitoringProxy**
+```
+python monitoringProxy/proxy_monitoring.py -c monitoringProxy/<config file>
+```
+**nodeJS**
+Many instances of the nodeJS service can run at the same time and point to different datasources. In this case they must be started one by one. Each instance must point to a different configuration file.
+```
+node nodeJS/monitoringAPI.js nodeJS/<config file>
+```
+
+An alternative way is to start all the application's modules in an automatic way using the screen files present in the [start_scripts](https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/tree/master/start_scripts) folder:
+```
+screen -c start_scripts/start.screen
+```
+In this way.....
 
 [Top](#top)
 
 ## Installation Verification
 
-In order to check the status of this tool is sufficient to check the status of the NodeJS process. After that, it is possible to test also the Federation Monitoring API status by using CURL commands. This process is a tow steps process:
-1. require a token to the IDM (oath2)
-2. send a proper request (GET) to the pep-proxy that stands in front of the API
+In order to check the status of this tool is sufficient to check the status of the following processes: `monitoringAPI.js`, `proxy_monitoring.py` and `pep-proxy2.js`. If the web-service has been started with the [start_scripts](https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/tree/master/start_scripts) the status can be seen navigating the various tabs on the relative screen session `screen -r`.
+After that, it is possible to test also the Federation Monitoring API status by using CURL commands. This can be done following these simple two steps:
+1. Require a token to the IDM (oath2)
+2. Send a proper request (GET) to the pep-proxy that stands in front of the API
 
 ### Obtain token:
-To obtain the token use 'get_token.js' app in this way:
+
+See [get_token.js](https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/blob/master/nodeJS/get_token.js) or [get_token.py](https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/blob/master/monitoringProxy/get_token.py).
+
+the below example shows how to obtain the token using [get_token.js](https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/blob/master/nodeJS/get_token.js) script:
 
 ```
 node get_token.js "username" "password" "auth_url"
@@ -163,20 +172,36 @@ curl -H "Authorization:Bearer <token>" -s 127.0.0.1:1027/monitoring/regions/Tren
 [Top](#top)
 
 ## User Manual:
-The user manual is not provided in this *Readme.md* file. User can easily use this restful webserver, by simple calling the API. For more information about some API URL examples have a look at the [apiary page](http://docs.federationmonitoring.apiary.io/)
+The user manual is not provided in this *Readme.md* file. User can easily use this restful webserver, by simple calling the API.
+
+Few examples following:
+
+* Retrieve list of regions
+```
+curl -X GET -H "Cache-Control: no-cache" -H "http://MONITORING_API_ENDPOINT:MONITORING_API_PORT/monitoring/regions"
+```
+
+* Retrieve information for Spain region
+```
+curl -X GET -H "Cache-Control: no-cache" -H "http://MONITORING_API_ENDPOINT:MONITORING_API_PORT/monitoring/regions/Spain2"
+```
+
+* Retrieve hosts on Spain region *(this query requires authentication)*
+```
+curl -X GET -H "Authorization: Bearer BEARER_TOKEN" -H "Cache-Control: no-cache" -H "http://MONITORING_API_ENDPOINT:MONITORING_API_PORT/monitoring/regions/Spain2/hosts"
+```
+
+
+
+## API documentation
+
+An updated and detailed documentation about the API available from this web-service have a look at the [apiary page](http://docs.federationmonitoring.apiary.io/).
 
 [Top](#top)
 
-## Known Issues
-The main issues about this tools are linked to its interaction with the pep-proxy. This requires a bit of expertise on OAUTH2 system. As a matter of fat users do not interact directly with the API, but they communicate to the PEP proxy interface.
+## Development environment
 
-[Top](#top)
-
-## Link to github
-[This](https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI) is the official Github repository:
-* https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI
-
-[Top](#top)
+A development environment, based on Vagrant, can be used to simulate the source of data where monitoringAPI retrieve metrics and the Infographics GUI. It is available at this project page: [vagrant-FIWARELab-monitoringAPI](https://github.com/SmartInfrastructures/vagrant-FIWARELab-monitoringAPI).
 
 ## License
 
