@@ -547,10 +547,10 @@ Orion context Broker based<y:LabelModel>
     <edge id="e7" source="n8" target="n9">
       <data key="d10">
         <y:PolyLineEdge>
-          <y:Path sx="-48.0" sy="-43.0" tx="17.0" ty="13.0"/>
+          <y:Path sx="-94.34985422740533" sy="124.23032069970844" tx="17.0" ty="13.0"/>
           <y:LineStyle color="#000000" type="line" width="3.0"/>
           <y:Arrows source="standard" target="standard"/>
-          <y:EdgeLabel alignment="center" backgroundColor="#FFFFFF" configuration="AutoFlippingLabel" distance="2.0" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasLineColor="false" height="18.1328125" modelName="custom" preferredPlacement="anywhere" ratio="0.5" textColor="#000000" visible="true" width="32.142578125" x="-78.53564453125" y="-53.58123428520115">REST<y:LabelModel>
+          <y:EdgeLabel alignment="center" backgroundColor="#FFFFFF" configuration="AutoFlippingLabel" distance="2.0" fontFamily="Dialog" fontSize="12" fontStyle="plain" hasLineColor="false" height="18.1328125" modelName="custom" preferredPlacement="anywhere" ratio="0.5" textColor="#000000" visible="true" width="32.142578125" x="-69.8006015823632" y="-131.64835893725515">REST<y:LabelModel>
               <y:SmartEdgeLabelModel autoRotationEnabled="false" defaultAngle="0.0" defaultDistance="10.0"/>
             </y:LabelModel>
             <y:ModelParameter>
