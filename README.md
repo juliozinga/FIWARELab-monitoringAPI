@@ -1,4 +1,7 @@
-# FIWARELab - Federation Monitoring API Component
+#<a name="top"></a>FIWARELab - Federation Monitoring API Component
+
+[![License badge](https://camo.githubusercontent.com/651d047a62d409c28b23517069c652af8b8c429c/68747470733a2f2f636f636f61706f642d6261646765732e6865726f6b756170702e636f6d2f6c2f526573744b69742f62616467652e706e67)](http://www.apache.org/licenses/LICENSE-2.0)
+[![Documentation badge](https://readthedocs.org/projects/fiware-orion/badge/?version=latest)](http://docs.federationmonitoring.apiary.io/#)
 
 This is the code repository for the federation monitoring API component, the FIWARE tool used to provide information to user/app by a RESTFUL service.
 
@@ -6,6 +9,19 @@ This project is part of [FIWARE](http://www.fiware.org).
 
 Any feedback on this documentation is highly welcome, including bugs, typos
 or things you think should be included but are not. You can use [github issues](https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/issues/new) to provide feedback.
+
+**Table of Contents**
+
+
+- [Description](#description)
+- [Features Implemented](#features-implemented)
+- [Installation Manual](#installation-manual)
+- [Installation Verification](#installation-verification)
+- [User Manual:](#user-manual)
+- [API documentation](#api-documentation)
+- [Development environment](#development-environment)
+- [License](#license)
+
 
 [Top](#top)
 
@@ -18,20 +34,20 @@ Federation Monitoring API is mainly composed by two modules:
 - **nodeJS**: A [NodeJS](https://nodejs.org/) based web-service
  *This web-service was the previous main monitoring API, which is still in use to retrieve data when using few APIs not completely migrated.*
 
-Moreover a third module, not strictly related with the API service, has been added to this project repository:
+Moreover, a third module, not strictly related with the API service, has been added to this project repository:
 
 - **monitoringHisto**: A [Python](https://www.python.org/) based stand-alone application
  *This application is in charge of collecting, aggregating and storing periodically historical information from FIWARE Monasca API.*
 
 The following picture depict the main architecture of the monitoringAPI system. It is possibile to see that the current architecture supports two different FIWARE federation monitoring: the first and the second enhanced version. This is needed to grant a lightweight and gradual migration process.
 
-![FIWARE monitoringAPI architecture](https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/raw/master/docs/raw/monitoringAPI-architecture.png "FIWARE monitoringAPI architecture")
+![FIWARE monitoringAPI architecture] (https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/raw/master/docs/raw/monitoringAPI-architecture.png "FIWARE monitoringAPI architecture")
 
 The API service is protected by a [proxy](https://github.com/ging/fi-ware-pep-proxy) that evaluates the user's credentials through OAuth 2.0.
 
 API provides status information about the [Openstack](https://www.openstack.org/) installation for each federated region, not only about CPU, RAM and DISK usage but also metrics regarding the status of the services and its versions. The information schema that can be provided by the Federation Monitoring API is the presented in this image.
 
-![alt text](http://wiki.fi-xifi.eu/wiki/images/thumb/5/5d/Monitoring-dataModel.png/800px-Monitoring-dataModel.png "The federation monitoring API information schema")
+![The federation monitoring API information schema] (https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/raw/master/docs/raw/800px-Monitoring-dataModel.png "The federation monitoring API information schema")
 
 A detailed overview of the API contract is described at this [page](http://docs.federationmonitoring.apiary.io/)
 
@@ -142,7 +158,7 @@ An alternative way is to start all the application's modules in an automatic way
 ```
 screen -c start_scripts/start.screen
 ```
-In this way.....
+In this way a screen session will be started and a screen tab will be created for each service. Navigating through the tabs allows the administrator of the service to have a complete monitoringAPI console in order to control the status and make adjustments if needed.
 
 [Top](#top)
 
