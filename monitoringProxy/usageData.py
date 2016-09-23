@@ -3,6 +3,7 @@ from model import usagedata_resources
 from distutils.util import strtobool
 import utils
 import copy
+import json
 
 
 '''
@@ -16,6 +17,8 @@ def get_toptenants(mongodb, app_config, sort_criteria="vmsActiveNum"):
     obfuscate_tid =  strtobool(app_config["usageData"]["obfuscate_tenant_id"])
     global tenants_num
     tenants_num =  int(app_config["usageData"]["tenants_num"])
+    global excluded_tenants
+    excluded_tenants = json.loads(app_config["usageData"]["blacklist_tenants"])
 
     now = utils.get_timestamp()
     ts_limit = now - int(app_config["api"]["vmTTL"])
@@ -44,7 +47,7 @@ def _tenants_from_vms(vms):
         if tid in tenants:
             tenant = tenants.get(tid)
             _tenant_update(tenant, vm)
-        else:
+        elif tid not in excluded_tenants:
             tenant = copy.deepcopy(usagedata_resources.tenant_resource)
             # tenant["tenantId"] = tid
             _tenant_update(tenant, vm)
