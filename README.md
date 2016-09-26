@@ -32,7 +32,7 @@ Federation Monitoring API is mainly composed by two modules:
 - **monitoringProxy**: A [Python Bottle](http://bottlepy.org/docs/dev/index.html) based web-service
  *This web-service exposes, through a stable and documented API, the FIWARE monitoring informations retrieved querying other components on the underlying FIWARE monitoring. In particular this service has been implemented following a [Facade pattern](https://en.wikipedia.org/wiki/Facade_pattern) in order to rigorously respect the documented API, to hide the lower layers, standardising the access to monitoring information by clients and to adapt the monitoring API to the new FIWARE monitoring data model.*
 - **nodeJS**: A [NodeJS](https://nodejs.org/) based web-service
- *This web-service was the previous main monitoring API, which is still in use to retrieve data when using few APIs not completely migrated.*
+ *This web-service was the previous main monitoring API, which is still in use to for backward compatibility towards regions still using the old FIWARE monitoring and to retrieve data from few APIs not completely migrated.*
 
 Moreover, a third module, not strictly related with the API service, has been added to this project repository:
 
@@ -73,7 +73,7 @@ Through the API interface users can obtain information about:
     * *live information about the host_services per region*
     * *historical information about the host_services per region*
 * FIWARE Usage data
-    * *Aggregated data about the resource usage of first X tenants*
+    * *Aggregated data about the overall resource usage for the first X tenants*
 
 The monitoringAPI, if integrated with the [FIWARE pep Proxy](https://github.com/ging/fi-ware-pep-proxy) will provide also an authentication/autorization system, that filters the available information taking into account the user's role inside the FIWARE project.
 
@@ -104,9 +104,7 @@ Required softwares are:
 In order to obtain a complete federation monitoring system please consider to install all the FIWARE federation monitoring components in your region, following the official  [manual](https://github.com/SmartInfrastructures/ceilometer-plugin-fiware)
 
 ### Configuration file
-A [main configuration file](https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/blob/master/conf/config.ini) is shared between all modules and it contains the list of available regions. For each region is specified the current status (`True -> New FIWARE monitoring`, `False -> Old FIWARE monitoring`) and the region canonical name.
-Moreover, an additional configuration file is specified for each module and it contains specific configuration parameters for it and can be used as a prototype in order to create the main configuration file which has to be passed to the module on the command line at startup.
-
+A [main configuration file](https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/blob/master/conf/config.ini) is shared between all modules and it contains the list of available regions. For each region is specified the current status (`True -> New FIWARE monitoring`, `False -> Old FIWARE monitoring`) and the region canonical name. Moreover, an additional configuration file is specified for each module since it contains specific configuration parameters. The prototype configuration file present on each module folder can be used in order to create the main configuration file which has to be passed to the module on the command line at startup.
 
 ### monitoringAPI
 This service is composed by [nodeJS](https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/tree/master/nodeJS) and [monitoringProxy](https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/tree/master/monitoringProxy) packages, therefore the recommended steps include the installation of both services:
