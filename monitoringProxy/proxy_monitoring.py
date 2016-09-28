@@ -652,7 +652,7 @@ def get_region_from_mongo(mongodb, regionid):
         # aggragation from hosts on region
         hosts = get_cursor_hosts_from_mongo(mongodb, regionid)
         if hosts is not None:
-            hosts_data = aggr_hosts_data(hosts)
+            hosts_data = aggr_hosts_data(hosts, regionid)
             region_entity["nb_ram"] = hosts_data["ramTot"]
             region_entity["measures"][0]["nb_ram"] = hosts_data["ramTot"]
             region_entity["nb_disk"] = hosts_data["diskTot"]
@@ -839,7 +839,7 @@ def aggr_vms_data(vms):
     return vms_data
 
 
-def aggr_hosts_data(hosts):
+def aggr_hosts_data(hosts, regionid=None):
     """
     Function that aggregate host entity data given a collection (cursor retuned from mongo query) of hosts
     """
@@ -857,6 +857,10 @@ def aggr_hosts_data(hosts):
             hosts_data["ramNowTot"] += int(host["attrs"]["ramNow"]["value"])
         if host.get("attrs", {}).has_key("diskNow"):
             hosts_data["diskNowTot"] += int(host["attrs"]["diskNow"]["value"])
+    # Workaround to adjust storage amount if Ceph is used
+    cephStorageRegions = json.loads(app.config["api"]["regionsCephStorage"])
+    if regionid in cephStorageRegions:
+        hosts_data["diskTot"] = hosts_data["diskTot"] / hosts.count()
     return hosts_data
 
 
