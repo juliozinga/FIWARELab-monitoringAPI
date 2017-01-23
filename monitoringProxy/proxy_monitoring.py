@@ -664,8 +664,12 @@ def get_region_from_mongo(mongodb, regionid):
             region_entity["measures"][0]["percRAMUsed"] = 0
             region_entity["measures"][0]["percDiskUsed"] = 0
             if hosts_data["ramTot"] != 0:
+                if region["attrs"].has_key('ram_allocation_ratio'):
+                    ram_allocation_ratio = float(region["attrs"]["ram_allocation_ratio"]["value"])
+                else:
+                    ram_allocation_ratio = 1.0
                 region_entity["measures"][0]["percRAMUsed"] = hosts_data["ramNowTot"] / (
-                hosts_data["ramTot"] * float(region["attrs"]["ram_allocation_ratio"]["value"]))
+                hosts_data["ramTot"] * ram_allocation_ratio)
             if hosts_data["diskTot"] != 0:
                 region_entity["measures"][0]["percDiskUsed"] = hosts_data["diskNowTot"] / hosts_data["diskTot"]
 
