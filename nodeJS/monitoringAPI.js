@@ -1050,7 +1050,7 @@ function getHostList(res, statusType, authToken, regionId) {
           sendErrorResponse(res, localEnum.UNAUTHORIZED.value, localEnum.UNAUTHORIZED.key);
         });
         responseCloud.on('data', function(data) {
-          //UserJson = eval('(' + data + ')');
+          var UserJson = null;
           try {
             UserJson = eval('(' + data + ')');
           } catch (err) {
