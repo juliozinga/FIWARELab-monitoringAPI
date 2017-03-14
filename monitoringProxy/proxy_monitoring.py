@@ -180,7 +180,7 @@ return empty array if error
 '''
 
 
-def make_request(request_url, request, regionid=None):
+def fwd_request(request_url, request, regionid=None):
     my_response = do_http_get(request_url, request, regionid)
     response.status = my_response.getcode()
     response.set_header("Content-Type", my_response.info().getheader("Content-Type"))
@@ -236,14 +236,14 @@ def get_region(mongodb, regionid="ID of the region"):
         else:
             abort(404)
     else:
-        return make_request("/monitoring/regions/" + regionid, request=request, regionid=regionid)
+        return fwd_request("/monitoring/regions/" + regionid, request=request, regionid=regionid)
 
 
 @app.route('/monitoring/regions/<regionid>/services', method='GET')
 @app.route('/monitoring/regions/<regionid>/services/', method='GET')
 def get_all_services_by_region(db, regionid="ID of the region"):
     if is_region_on(regionid):
-        return make_request("/monitoring/regions/" + regionid + "/services", request=request, regionid=regionid)
+        return fwd_request("/monitoring/regions/" + regionid + "/services", request=request, regionid=regionid)
     else:
         abort(404)
 
@@ -260,7 +260,7 @@ def get_all_hosts(mongodb, regionid="ID of the region"):
         else:
             abort(404)
     else:
-        return make_request("/monitoring/regions/" + regionid + "/hosts", request=request, regionid=regionid)
+        return fwd_request("/monitoring/regions/" + regionid + "/hosts", request=request, regionid=regionid)
 
 
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>', method='GET')
@@ -278,14 +278,14 @@ def get_host(mongodb, regionid="ID of the region", hostid="ID of the host"):
         else:
             abort(404)
     else:
-        return make_request("/monitoring/regions/" + regionid + "/hosts/" + hostid, request=request, regionid=regionid)
+        return fwd_request("/monitoring/regions/" + regionid + "/hosts/" + hostid, request=request, regionid=regionid)
 
 
 @app.route('/monitoring/regions/<regionid>/vms', method='GET')
 @app.route('/monitoring/regions/<regionid>/vms/', method='GET')
 def get_all_vms(regionid="ID of the region"):
     if is_region_on(regionid):
-        return make_request("/monitoring/regions/" + regionid + "/vms/", request=request, regionid=regionid)
+        return fwd_request("/monitoring/regions/" + regionid + "/vms/", request=request, regionid=regionid)
     else:
         abort(404)
 
@@ -294,7 +294,7 @@ def get_all_vms(regionid="ID of the region"):
 @app.route('/monitoring/regions/<regionid>/vmsdetails/', method='GET')
 def get_all_vmsdetails(regionid="ID of the region"):
     if is_region_on(regionid):
-        return make_request("/monitoring/regions/" + regionid + "/vmsdetails/", request=request, regionid=regionid)
+        return fwd_request("/monitoring/regions/" + regionid + "/vmsdetails/", request=request, regionid=regionid)
     else:
         abort(404)
 
@@ -303,7 +303,7 @@ def get_all_vmsdetails(regionid="ID of the region"):
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/', method='GET')
 def get_vm(regionid="ID of the region", vmid="ID of the vm"):
     if is_region_on(regionid):
-        return make_request("/monitoring/regions/" + regionid + "/vms/" + vmid, request=request, regionid=regionid)
+        return fwd_request("/monitoring/regions/" + regionid + "/vms/" + vmid, request=request, regionid=regionid)
     else:
         abort(404)
 
@@ -312,8 +312,8 @@ def get_vm(regionid="ID of the region", vmid="ID of the vm"):
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>/services/', method='GET')
 def get_all_services_by_host(regionid="ID of the region", hostid="ID of the host"):
     if is_region_on(regionid):
-        return make_request("/monitoring/regions/" + regionid + "/hosts/" + hostid + "/services", request=request,
-                            regionid=regionid)
+        return fwd_request("/monitoring/regions/" + regionid + "/hosts/" + hostid + "/services", request=request,
+                           regionid=regionid)
     else:
         abort(404)
 
@@ -322,8 +322,8 @@ def get_all_services_by_host(regionid="ID of the region", hostid="ID of the host
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>/services/<serviceName>/', method='GET')
 def get_service_by_host(regionid="ID of the region", hostid="ID of the host", serviceName="Service name"):
     if is_region_on(regionid):
-        return make_request("/monitoring/regions/" + regionid + "/hosts/" + hostid + "/services/" + serviceName,
-                            request=request, regionid=regionid)
+        return fwd_request("/monitoring/regions/" + regionid + "/hosts/" + hostid + "/services/" + serviceName,
+                           request=request, regionid=regionid)
     else:
         abort(404)
 
@@ -332,8 +332,8 @@ def get_service_by_host(regionid="ID of the region", hostid="ID of the host", se
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/services/', method='GET')
 def get_all_services_by_vm(regionid="ID of the region", vmid="ID of the vm"):
     if is_region_on(regionid):
-        return make_request("/monitoring/regions/" + regionid + "/vms/" + vmid + "/services", request=request,
-                            regionid=regionid)
+        return fwd_request("/monitoring/regions/" + regionid + "/vms/" + vmid + "/services", request=request,
+                           regionid=regionid)
     else:
         abort(404)
 
@@ -342,8 +342,8 @@ def get_all_services_by_vm(regionid="ID of the region", vmid="ID of the vm"):
 @app.route('/monitoring/regions/<regionid>/vms/<vmid>/services/<serviceName>/', method='GET')
 def get_service_by_vm(regionid="ID of the region", vmid="ID of the vm", serviceName="Service name"):
     if is_region_on(regionid):
-        return make_request("/monitoring/regions/" + regionid + "/vms/" + vmid + "services/" + serviceName,
-                            request=request, regionid=regionid)
+        return fwd_request("/monitoring/regions/" + regionid + "/vms/" + vmid + "services/" + serviceName,
+                           request=request, regionid=regionid)
     else:
         abort(404)
 
@@ -352,7 +352,7 @@ def get_service_by_vm(regionid="ID of the region", vmid="ID of the vm", serviceN
 @app.route('/monitoring/regions/<regionid>/nes/', method='GET')
 def get_all_nes(regionid="ID of the region"):
     if is_region_on(regionid):
-        return make_request("/monitoring/regions/" + regionid + "/nes/", request=request, regionid=regionid)
+        return fwd_request("/monitoring/regions/" + regionid + "/nes/", request=request, regionid=regionid)
     else:
         abort(404)
 
@@ -361,7 +361,7 @@ def get_all_nes(regionid="ID of the region"):
 @app.route('/monitoring/regions/<regionid>/nes/<neid>/', method='GET')
 def get_ne(regionid="ID of the region", neid="ID of the network"):
     if is_region_on(regionid):
-        return make_request("/monitoring/regions/" + regionid + "/nes/" + neid, request=request, regionid=regionid)
+        return fwd_request("/monitoring/regions/" + regionid + "/nes/" + neid, request=request, regionid=regionid)
     else:
         abort(404)
 
