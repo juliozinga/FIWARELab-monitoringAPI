@@ -129,7 +129,7 @@ If the region has new monitoring return the new one
 
 
 def select_monitoring_to_forward(regionid):
-    if is_region_new(regionid):
+    if is_region_new(regionid) or regionid is None:
         return app.config["newmonitoring"]["url"], app.config["newmonitoring"]["port"]
     else:
         return app.config["oldmonitoring"]["url"], app.config["oldmonitoring"]["port"]
