@@ -141,7 +141,7 @@ Return True if region use new monitoring system false otherwise
 
 
 def is_region_new(regionid):
-    if is_region_on(regionid) and str2bool(app.config["main_config"]["regionNew"][regionid]):
+    if is_region_on(regionid) and str2true(app.config["main_config"]["regionNew"][regionid]):
         return True
     return False
 
@@ -214,15 +214,14 @@ def do_http_get(request_url, request, regionid=None):
 
 @app.route('/')
 def root():
-    return make_request("/", request=request)
+    return fwd_request("/", request=request)
 
 
 @app.route('/monitoring/regions', method='GET')
 @app.route('/monitoring/regions/', method='GET')
 def get_all_regions(mongodb, mongodbOld):
     all_regions = get_all_regions_from_mongo(mongodb=mongodb, mongodbOld=mongodbOld)
-    return json.dumps(all_regions)
-    # return json.dumps(make_request("/monitoring/regions", request=request))
+    return all_regions
 
 
 @app.route('/monitoring/regions/<regionid>', method='GET')
@@ -474,14 +473,16 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
     region_list = {}
 
     for region_id, is_new in new_regions.iteritems():
-        if str2bool(is_new):
+        if str2true(is_new):
             region = get_region_from_mongo(mongodb, region_id)
             if region is not None:
                 region_list[region_id] = region
-        elif not str2bool(is_new):
-            response = make_request("/monitoring/regions/" + region_id, request=None, regionid=region_id)
-            if response.getcode() == 200:
-                region_list[region_id] = json.loads(response.read())
+        elif str2false(is_new):
+            my_response = do_http_get("/monitoring/regions/" + region_id, request=None, regionid=region_id)
+            if my_response.getcode() == 200:
+                region_list[region_id] = json.loads(my_response.read())
+        else:
+            continue
 
     for region in region_list.iteritems():
         region = region[1]
@@ -890,10 +891,16 @@ def ConfigSectionMap(section, Config):
     return dict1
 
 
-# Function to convert a string to boolean value.
+# Function to convert a true string to boolean value.
 # Used for load_regionNew
-def str2bool(v):
+def str2true(v):
     return v.lower() in ("yes", "true", "t", "1")
+
+
+# Function to convert a false string to boolean value.
+# Used for load_regionNew
+def str2false(v):
+    return v.lower() in ("no", "false", "f", "0")
 
 
 '''
@@ -965,8 +972,8 @@ def main():
         main_config.optionxform = str
         main_config.read(mainconfig_file)
         app.config['main_config'] = dict()
-        app.config['main_config']['regionNew'] = dict(main_config._sections['regionNew'])
-        app.config['main_config']['regionNames'] = dict(main_config._sections['regionNames'])
+        app.config['main_config']['regionNew'] = dict(main_config.items('regionNew'))
+        app.config['main_config']['regionNames'] = dict(main_config.items('regionNames'))
     except Exception as e:
         print("Problem parsing main config file: {}").format(e)
         sys.exit(-1)
