@@ -254,6 +254,8 @@ def get_all_hosts(mongodb, regionid="ID of the region"):
     if not is_region_on(regionid):
         abort(404)
     if is_region_new(regionid):
+        if not is_idm_authorized(auth_url=app.config["idm"]["account_url"], token_map=get_token_from_response(request)):
+            abort(401)
         hosts = get_hosts_from_mongo(mongodb=mongodb, regionid=regionid)
         if hosts is not None:
             return hosts
