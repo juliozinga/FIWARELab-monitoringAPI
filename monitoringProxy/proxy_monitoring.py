@@ -45,7 +45,7 @@ def is_idm_authorized(auth_url, token_map):
         print "Error in decoding token: " + str(e)
         return False
     try:
-        url_request = auth_url + "/user/?access_token=" + token_string
+        url_request = auth_url + "/user?access_token=" + token_string
         headers = {}
         headers['accept'] = 'application/json'
         headers['user-group'] = 'none'

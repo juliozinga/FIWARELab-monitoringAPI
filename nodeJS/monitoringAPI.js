@@ -1036,7 +1036,7 @@ function getHostList(res, statusType, authToken, regionId) {
     var options = {
       hostname: IDMurl,
       port: '443',
-      path: "/user/?access_token=" + access_token,
+      path: "/user?access_token=" + access_token,
       method: "GET",
       headers: {
         'accept': 'application/json',
@@ -1267,7 +1267,7 @@ function getHost(res, statusType, authToken, regionId, hostId) {
     var options = {
       hostname: IDMurl,
       port: '443',
-      path: "/user/?access_token=" + access_token,
+      path: "/user?access_token=" + access_token,
       method: "GET",
       headers: {
         'accept': 'application/json',
@@ -1443,7 +1443,7 @@ function getHostTime(res, statusType, authToken, regionId, hostId, sinceValue) {
     var options = {
       hostname: IDMurl,
       port: '443',
-      path: "/user/?access_token=" + access_token,
+      path: "/user?access_token=" + access_token,
       method: "GET",
       headers: {
         'accept': 'application/json',
@@ -1602,7 +1602,7 @@ function getVmList(res, statusType, authToken, regionId) {
     var options = {
       hostname: IDMurl,
       port: '443',
-      path: "/user/?access_token=" + access_token,
+      path: "/user?access_token=" + access_token,
       method: "GET",
       headers: {
         'accept': 'application/json',
@@ -1816,7 +1816,7 @@ function getVm(res, statusType, authToken, regionId, vmId) {
     var options = {
       hostname: IDMurl,
       port: '443',
-      path: "/user/?access_token=" + access_token,
+      path: "/user?access_token=" + access_token,
       method: "GET",
       headers: {
         'accept': 'application/json',
@@ -2172,7 +2172,7 @@ function getVmsDetails(res, statusType, authToken, regionId) {
     var options = {
       hostname: IDMurl,
       port: '443',
-      path: "/user/?access_token=" + access_token,
+      path: "/user?access_token=" + access_token,
       method: "GET",
       headers: {
         'accept': 'application/json',
@@ -2399,7 +2399,7 @@ function getVmTime(res, statusType, authToken, regionId, vmId, sinceValue) {
     var options = {
       hostname: IDMurl,
       port: '443',
-      path: "/user/?access_token=" + access_token,
+      path: "/user?access_token=" + access_token,
       method: "GET",
       headers: {
         'accept': 'application/json',
