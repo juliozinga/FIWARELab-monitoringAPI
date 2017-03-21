@@ -745,7 +745,7 @@ def get_host_from_mongo(mongodb, region, hostid):
 
     regionid = region["_id"]["id"]
     ram_ratio = region["attrs"]["ram_allocation_ratio"]["value"] if region["attrs"].has_key(
-        "ram_allocation_ratio") else false
+        "ram_allocation_ratio") else False
     host = get_doc_host_from_mongo(mongodb, regionid, hostid)
     if host is None:
         return None
