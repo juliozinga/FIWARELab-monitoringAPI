@@ -251,9 +251,6 @@ def get_all_services_by_region(db, regionid="ID of the region"):
 @app.route('/monitoring/regions/<regionid>/hosts', method='GET')
 @app.route('/monitoring/regions/<regionid>/hosts/', method='GET')
 def get_all_hosts(mongodb, regionid="ID of the region"):
-    print "##HEADERS"  
-    for x in dict(request.headers):
-        print x + ":" + dict(request.headers)[x]
     if not is_region_on(regionid):
         abort(404)
     if is_region_new(regionid):
