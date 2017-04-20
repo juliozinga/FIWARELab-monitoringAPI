@@ -1,42 +1,21 @@
 * Introduction
-  This is a Vagrant based project which deploy:
-  - CentOS vm
+  This is a Vagrant based project which deploy a CentOS virtual machine including:
   - mongo DB to simulate master ContextBroker DB (real-time data)
   - mysql DB to simulate master mysql DB (historical data)
   - monitoringAPI from https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI
-  - infographics from https://github.com/SmartInfrastructures/fi-lab-infographics
-    - Apply to f58064ce597a324d4046d83682d409242f436bd2
-    - GUI available on the host at http://localhost:3000
-    - Default conf uses the monitoring API on the host, not on the guest
+  - fiware-pep-proxy from https://github.com/ging/fiware-pep-proxy
 
-  *Some manual steps are necessary in order to export and import the databases which must be placed in SHARED folder before provisioning*
+  *Some manual steps are necessary in order to export the databases (from the federation-monitoring server) which must be placed in SHARED folder before provisioning*
 
 * Instructions
-  1) VM provisioning
-     #+BEGIN_EXAMPLE
-     vagrant up
-     #+END_EXAMPLE
-  2) Upgrade deploy patch
-     1) Pull infographics from master and move to =infographics-deploy=
-	#+BEGIN_EXAMPLE
-	git clone https://github.com/SmartInfrastructures/fi-lab-infographics
-	cd infographics-deploy
-	#+END_EXAMPLE
-     2) Decrypt =infographics-dev-deploy.patch.gpg=
-	#+BEGIN_EXAMPLE
-	gpg -d infographics-dev-deploy.patch.gpg 
-	#+END_EXAMPLE
-     3) Apply infographics-dev-deploy.patch
-	#+BEGIN_EXAMPLE
-	git apply infographics-dev-deploy.patch
-	#+END_EXAMPLE
-     4) Perform further modification on files and recreate the path file
-	#+BEGIN_EXAMPLE
-	# Modify files
-	git diff > infographics-dev-deploy.patch
-	#+END_EXAMPLE
-     5) Encrypt again overriding =infographics-dev-deploy.patch.gpg=
-	#+BEGIN_EXAMPLE
-	gpg infographics-dev-deploy.patch
-	#+END_EXAMPLE
-	
+  - Prepare backups of Mongo and MySQL databases into the =SHARED= folder following this guidelines:
+    - Mongo DB dump in the folder =SHARED/mongodb_backup/=
+    - MySQL DB dump in the file =SHARED/backupMysql.dump=
+  - VM provisioning
+    #+BEGIN_SRC sh
+    vagrant up
+    #+END_SRC
+  - Access the VM
+    #+BEGIN_SRC sh
+    vagrant ssh
+    #+END_SRC

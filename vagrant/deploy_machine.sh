@@ -1,11 +1,16 @@
 #!/bin/bash
 
 MY_PWD='r00tme'
+YUM_INSTALL='yum install -y '
 
 echo Provisioning...
 yum update -y
 echo -e "[mongodb-org-2.6]\nname=MongoDB 2.6 Repository\nbaseurl=http://downloads-distro.mongodb.org/repo/redhat/os/x86_64/\ngpgcheck=0\nenabled=1"|sudo tee /etc/yum.repos.d/mongodb-org-2.6.repo
-yum install -y mongodb-org wget emacs-nox gpg screen
+$YUM_INSTALL mongodb-org
+$YUM_INSTALL wget
+$YUM_INSTALL screen
+$YUM_INSTALL emacs-nox
+$YUM_INSTALL python-pip.noarch
 
 # Install and customize git
 yum -y install git
@@ -27,9 +32,19 @@ yum -y install npm
 /etc/init.d/contextBroker start
 /etc/init.d/mongod start
 
+# monitoringAPI and dependencies
 git clone https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI.git
-npm install bootstrap enum mongoose oauth moment request mysql
-mongorestore /vagrant/SHARED/mongodb_backup/
+pip install -r FIWARELab-monitoringAPI/monitoringHisto/requirements.txt
+pip install -r FIWARELab-monitoringAPI/monitoringProxy/requirements.txt
+cd FIWARELab-monitoringAPI/nodeJS
+npm install
+cd $OLDPWD
+
+# Restore from Mongo DB dump
+if [[ -d /vagrant/SHARED/mongodb_backup/ ]]; then
+	echo "Restoring from mongoDB dump"
+	mongorestore /vagrant/SHARED/mongodb_backup/
+fi
 
 #Mysql
 yum -y install mysql-server
@@ -37,40 +52,25 @@ yum -y install mysql-server
 /usr/bin/mysqladmin -u root password $MY_PWD
 /usr/bin/mysqladmin -u root -p$MY_PWD -h localhost.localdomain password $MY_PWD
 chkconfig mysqld on
-echo "MYSQL password is: $MY_PWD"
-mysql -u root -p$MY_PWD monitoring < /vagrant/SHARED/backupMysql.dump
 
-# Ruby and Rails install
-gpg2 --keyserver hkp://keys.gnupg.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3
-curl -sSL https://get.rvm.io | sudo bash -s stable
-source /etc/profile.d/rvm.sh
-rvm requirements
-rvm install 2.0.0
-gem install rails
+# Restore from MySQL DB dump
+if [[ -d /vagrant/SHARED/backupMysql.dump ]]; then
+	echo "Restoring from MySQL DB dump"
+	mysql -u root -p$MY_PWD monitoring < /vagrant/SHARED/backupMysql.dump
+fi
 
-#Infographics clone
-git clone https://github.com/SmartInfrastructures/fi-lab-infographics.git
-cd fi-lab-infographics
-git checkout f58064ce597a324d4046d83682d409242f436bd2
+#fiware-pep-proxy
+git clone https://github.com/ging/fiware-pep-proxy.git
+cd fiware-pep-proxy
+npm install
+cd $OLDPWD
 
-#Decrypt infographics configurations and DB dump
-echo $1 | gpg --passphrase-fd 0 --batch --yes -o /vagrant/infographics-deploy/infographics-dev-deploy.patch -d /vagrant/infographics-deploy/infographics-dev-deploy.patch.gpg
-echo $1 | gpg --passphrase-fd 0 --batch --yes -o /vagrant/infographics-deploy/fiware_lab_infographics.sql -d /vagrant/infographics-deploy/fiware_lab_infographics.sql.gpg
-
-#Infographics customize
-git apply /vagrant/infographics-deploy/infographics-dev-deploy.patch
-rm /vagrant/infographics-deploy/infographics-dev-deploy.patch
-
-#Infographics install
-yum install mysql-devel -y
-bundle install
-mysql -u root -pr00tme -e "create database infographics_development"
-mysql -u root -p$MY_PWD infographics_development < /vagrant/infographics-deploy/fiware_lab_infographics.sql
-rm /vagrant/infographics-deploy/fiware_lab_infographics.sql
-rake fi_lab_app:install:migrations
-rake db:migrate
 echo "----------------------------------------------------------------"
-echo "Vagrant VM deployment ready, to start Infographics use:"
-echo "vagrant ssh"
-echo "sudo su && cd fi-lab-infographics && rails server"
+echo "-- Vagrant VM deployment ready, here is some info: --"
+echo "MYSQL password is: $MY_PWD"
+echo "-- To start monitoringAPI: --"
+echo "1) Customise all configuration files"
+echo "2) cd start_scripts"
+echo "3) screen -c start.screen"
+echo "More information here: https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI#start-the-web-service"
 echo "----------------------------------------------------------------"
