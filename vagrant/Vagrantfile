@@ -1,0 +1,38 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
+VAGRANTFILE_API_VERSION = "2"
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+
+  # Do not update guest addition on the guest
+  config.vbguest.auto_update = false
+
+  config.vm.box = "bento/centos-6.7" #"centos/6"
+  config.ssh.forward_x11 = true
+  config.vm.synced_folder ".", "/vagrant", :mount_options => ["dmode=777", "fmode=666"]
+
+  config.vm.provider "virtualbox" do |vb|
+  # mysql port
+  config.vm.network "forwarded_port", guest: 3306, host: 33060
+  # mongo port
+  config.vm.network "forwarded_port", guest: 27017, host: 27017
+  # infographics port
+  config.vm.network "forwarded_port", guest: 3000, host: 3000
+  #   # Don't boot with headless mode
+    vb.gui = false
+    vb.name = "contextBrokerCentos"
+    vb.customize ["modifyvm", :id, "--memory", "2000"]
+    vb.customize ["setextradata", :id, "VBoxInternal2/SharedFoldersEnableSymlinksCreate/v-root", "1"]
+  end
+
+#  config.vm.provision "shell", path: "/bin/bash deploy_machine.sh"
+  config.vm.provision "shell" do |s|
+    puts "Please type the GPG password to unlock the infographics configurations and DB dump files"
+    puts "--> Needed only for provisioning the VM, in other cases just press ENTER"
+    gpg_pwd = STDIN.noecho(&:gets).chomp
+    s.inline = "/bin/bash /vagrant/deploy_machine.sh " + gpg_pwd
+  end
+
+end
