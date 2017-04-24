@@ -24,6 +24,11 @@ import urllib
 import copy
 import decimal
 import os
+# Add the FIWARELab-monitoringAPI folder path to the sys.path list
+sys.path.append('/path/to/the/FIWARELab-monitoringAPI')
+import monitoringHisto.monitoringHisto
+from monitoringHisto.monitoringHisto import utils
+from monitoringHisto.monitoringHisto.CollectorMonasca import CollectorMonasca
 
 ###Main bottle app
 app = Bottle()
@@ -229,8 +234,11 @@ def get_all_regions(mongodb, mongodbOld):
 def get_region(mongodb, regionid="ID of the region"):
     if not is_region_on(regionid):
         abort(404)
-    if is_region_new(regionid) and request.params.getone("since") is None:
-        region = get_region_from_mongo(mongodb=mongodb, regionid=regionid)
+    #if is_region_new(regionid) and request.params.getone("since") is None:
+    if request.params.getone("since") is None:
+        #region = get_region_from_mongo(mongodb=mongodb, regionid=regionid)
+        region = get_region_from_monasca(regionid=regionid)
+        
         if region is not None:
             return region
         else:
@@ -247,22 +255,22 @@ def get_all_services_by_region(db, regionid="ID of the region"):
     else:
         abort(404)
 
-
 @app.route('/monitoring/regions/<regionid>/hosts', method='GET')
 @app.route('/monitoring/regions/<regionid>/hosts/', method='GET')
-def get_all_hosts(mongodb, regionid="ID of the region"):
+def get_all_hosts(mongodb, regionid="ID of the region"):    
     if not is_region_on(regionid):
         abort(404)
-    if is_region_new(regionid):
-        if not is_idm_authorized(auth_url=app.config["idm"]["account_url"], token_map=get_token_from_response(request)):
-            abort(401)
-        hosts = get_hosts_from_mongo(mongodb=mongodb, regionid=regionid)
-        if hosts is not None:
-            return hosts
-        else:
-            abort(404)
+    #if is_region_new(regionid):
+    if not is_idm_authorized(auth_url=app.config["idm"]["account_url"], token_map=get_token_from_response(request)):
+        abort(401)
+    #hosts = get_hosts_from_mongo(mongodb=mongodb, regionid=regionid)
+    hosts = get_hosts_from_monasca(regionid)
+    if hosts is not None:
+        return hosts
     else:
-        return fwd_request("/monitoring/regions/" + regionid + "/hosts", request=request, regionid=regionid)
+        abort(404)
+    #else:
+        #return fwd_request("/monitoring/regions/" + regionid + "/hosts", request=request, regionid=regionid)
 
 
 @app.route('/monitoring/regions/<regionid>/hosts/<hostid>', method='GET')
@@ -273,8 +281,9 @@ def get_host(mongodb, regionid="ID of the region", hostid="ID of the host"):
     if is_region_new(regionid) and request.params.getone("since") is None:
         if not is_idm_authorized(auth_url=app.config["idm"]["account_url"], token_map=get_token_from_response(request)):
             abort(401)
-        region = get_doc_region_from_mongo(mongodb, regionid)
-        host = get_host_from_mongo(mongodb, region, hostid)
+        #region = get_doc_region_from_mongo(mongodb, regionid)
+        #host = get_host_from_mongo(mongodb, region, hostid)
+        host = get_host_from_monasca(regionid, hostid+"_"+hostid)
         if host is not None:
             return host
         else:
@@ -790,6 +799,435 @@ def get_hosts_from_mongo(mongodb, regionid):
         result_dict["hosts"].append(copy.deepcopy(base_dict_list))
     return result_dict
 
+#Monasca-------------------------------------------------------------------------------
+
+#get the last measurement looking its timestamp
+def get_last_monasca_measurement(measurements_dict):
+    if measurements_dict and len(measurements_dict) > 0 and measurements_dict[0].has_key("measurements"):  
+        measurements = measurements_dict[0]["measurements"]
+        if measurements and len(measurements) > 0:
+            #sort measurements for timestamp and take the last one
+            sorted_measurements = sorted(measurements, key=lambda x : x[0])
+            last_measurement = sorted_measurements[len(sorted_measurements)-1]
+            return last_measurement
+    return None
+  
+#get from Monasca the updated metadata and the number of total ips (region.pool_ip) of a given region
+def get_metadata_for_region(regionid):
+    start = utils.get_datetime_with_delta_sec(int(app.config["api"]["regionTTL"]))
+    start_timestamp = utils.from_datetime_ms_to_monasca_ts(start)
+    print start_timestamp
+    return collector.get_pool_ip_for_region(regionid,start_timestamp)
+
+#get from Monasca the updated number of allocated ips (region.allocated_ip) of a given region
+def get_ip_available_for_region(regionid):
+    start = utils.get_datetime_with_delta_sec(int(app.config["api"]["regionTTL"]))
+    start_timestamp = utils.from_datetime_ms_to_monasca_ts(start)
+    return collector.get_allocated_ip_for_region(regionid,start_timestamp)
+
+#get from Monasca the updated number of used ips (region.used_ip) of a given region
+def get_ip_used_for_region(regionid):
+    start = utils.get_datetime_with_delta_sec(int(app.config["api"]["regionTTL"]))
+    start_timestamp = utils.from_datetime_ms_to_monasca_ts(start)
+    return collector.get_used_ip_for_region(regionid,start_timestamp)
+
+#get from Monasca a set of resources ids for a given metric and a region 
+def get_resources_for_metric(regionid,metricName):
+    return collector.get_resources_for_metric(regionid,metricName)
+
+#get from Monasca the updated hosts measurements for a given metric, region and host
+def get_measurements_for_hostname(regionid,metricName,hostname):	
+    start = utils.get_datetime_with_delta_sec(int(app.config["api"]["hostTTL"]))
+    start_timestamp = utils.from_datetime_ms_to_monasca_ts(start)
+    return collector.get_measurements_for_hostname(regionid,metricName,hostname,start_timestamp)
+
+#get a set of all hosts ids (active and inactive) for a given region (checking all the compute metrics specified in the config file)
+def get_all_region_hostnames(regionid):
+    metricsNames = json.loads(app.config["metrics"]["computeMetrics"])
+    hostnames = set()
+    pool = Pool(processes=len(metricsNames))
+    
+    async_results = [pool.apply_async(get_resources_for_metric, (regionid,metricName)) for metricName in metricsNames]
+    for res in async_results:
+        try:
+            hostnames = hostnames.union(res.get(timeout=5))
+        except TimeoutError:
+            print("HTTP call to monasca API to retrieve region metrics did not respond in 5 seconds. No metrics data returned")
+        
+    pool.close()
+    pool.join()
+    return hostnames
+
+#check if a region host is active or not, looking if at least one of its metrics' mesurements is updated
+def is_region_hostname_active(regionid,hostname):
+    metricsNames = json.loads(app.config["metrics"]["computeMetrics"])
+    pool = Pool(processes=len(metricsNames))
+    
+    async_results = [pool.apply_async(get_measurements_for_hostname, (regionid,metricName,hostname)) for metricName in metricsNames]
+    #metric_not_empty_count = 0
+    for res in async_results:
+        try:
+            result = res.get(timeout=5)
+            if result and len(result) > 0 and result[0].has_key("measurements"):                
+                if len(result[0]["measurements"]) > 0:
+                    pool.close()
+                    pool.join()
+                    #metric_not_empty_count += 1
+                    return True
+                
+        except TimeoutError:
+            print("HTTP call to monasca API to retrieve measurements for hostname did not respond in 5 seconds. No measurements data returned")
+    pool.close()
+    pool.join()
+    #if metric_not_empty_count == len(metricsNames):
+        #return True
+    return False
+
+#get host entity list dict for a given region
+def get_hosts_from_monasca(regionid):
+    hostnames = get_all_region_hostnames(regionid) 
+    
+    result_dict = {"hosts": [], "links": {"self": {"href": "/monitoring/regions/" + regionid + "/hosts"}}}
+    for hostname in hostnames:
+        if is_region_hostname_active(regionid,hostname):
+            hostid = hostname.split("_")[0]
+            base_dict_list["_links"]["self"]["href"] = "/monitoring/regions/" + regionid + "/hosts/" + hostid
+            base_dict_list["id"] = hostid
+            result_dict["hosts"].append(copy.deepcopy(base_dict_list))
+
+    return result_dict 
+
+#get host measurements for a given region and host (metrics specified in config file)
+def get_host_measurements_from_monasca(regionid,hostname):
+    metricsNames = json.loads(app.config["metrics"]["computeMetrics"])
+    pool = Pool(processes=len(metricsNames))
+    
+    measurements = {}
+    
+    async_results = [pool.apply_async(get_measurements_for_hostname, (regionid,metricName,hostname)) for metricName in metricsNames]
+
+    for res in async_results:
+        try:
+            result = res.get(timeout=5)
+            if result and len(result) > 0 and result[0].has_key("name"):        
+                last_measurement = get_last_monasca_measurement(result)
+                if last_measurement and len(last_measurement) > 1:
+                    measurements_data = {}                    
+                    measurements_data["value"] = last_measurement[1]
+                    measurements_data["timestamp"] = last_measurement[0]
+                    metric_name = result[0]["name"]
+                    measurements[metric_name] = measurements_data
+                    #print metric_name+" -- "+last_measurement[0]+" -- "+str(last_measurement[1])
+                
+        except TimeoutError:
+            print("HTTP call to monasca API to retrieve measurements for hostname did not respond in 5 seconds. No measurements data returned")
+    pool.close()
+    pool.join()
+    return measurements
+
+#get host entity for a given region and hostId 
+def get_host_from_monasca(regionid,hostname):
+    host = get_host_measurements_from_monasca(regionid,hostname)    
+    pool = Pool(processes=1)
+    async_result = pool.apply_async(get_metadata_for_region, (regionid,))
+
+    host_entity = {
+        "_links": {
+            "self": {
+                "href": ""
+            },
+            "services": {
+                "href": ""
+            }
+        },
+        "regionid": "",
+        "hostid": "",
+        "role": "",
+        "ipAddresses": [
+            {
+                "ipAddress": ""
+            }
+        ],
+        "measures": [
+            {
+                "timestamp": "",
+                "percCPULoad": {
+                    "value": "",
+                    "description": "desc"
+                },
+                "percRAMUsed": {
+                    "value": "",
+                    "description": "desc"
+                },
+                "percDiskUsed": {
+                    "value": "",
+                    "description": "desc"
+                },
+                "sysUptime": {
+                    "value": "",
+                    "description": "desc"
+                },
+                "owd_status": {
+                    "value": "",
+                    "description": "desc"
+                },
+                "bwd_status": {
+                    "value": "",
+                    "description": "desc"
+                }
+            }
+        ]
+    }
+
+    region_metadata = None
+    try:
+        metadata_result = async_result.get(5)  # get the return value from thread
+        if metadata_result:
+            region_metadata = get_last_monasca_measurement(metadata_result)
+    except TimeoutError:
+        print("HTTP call to monasca API to retrieve metadata measurements for region did not respond in 5 seconds. No measurements metadata returned")
+    finally:
+        pool.close()
+        pool.join()
+        
+    ram_ratio = False
+    if region_metadata and len(region_metadata) > 2:
+        if region_metadata[2].has_key("ram_allocation_ratio"):
+            ram_ratio = region_metadata[2]["ram_allocation_ratio"]
+        else:
+            ram_ratio = False
+
+    if not bool(host):
+        return None
+    else:
+        hostid = hostname.split("_")[0]
+        host_entity["_links"]["self"]["href"] = "/monitoring/regions/" + regionid + "/hosts/" + hostid
+        host_entity["_links"]["services"]["href"] = host_entity["_links"]["self"]["href"] + "/services"
+        host_entity["regionid"] = regionid
+        host_entity["hostid"] = hostid
+        host_entity["role"] = "compute"
+        #if host["attrs"].has_key("_timestamp"):
+            #host_entity["measures"][0]["timestamp"] = host["attrs"]["_timestamp"]["value"]
+        #set timestamp = to the timestamp of one of the updated metrics measures found
+        first_host_attribute = host.itervalues().next()
+        if first_host_attribute.has_key("timestamp"):
+            host_entity["measures"][0]["timestamp"] = utils.from_monasca_ts_to_datetime_ms(first_host_attribute["timestamp"]).strftime('%s')
+        if host.has_key("compute.node.cpu.percent"):
+            cpu_pct = round(float(host["compute.node.cpu.percent"]["value"]), 2)
+            host_entity["measures"][0]["percCPULoad"]["value"] = str(cpu_pct)
+        else:
+            del host_entity["measures"][0]["percCPULoad"]
+        if host.has_key("compute.node.ram.now") and host.has_key("compute.node.ram.tot") and ram_ratio:
+            ram_used = int(host["compute.node.ram.now"]["value"])
+            ram_tot = int(host["compute.node.ram.tot"]["value"])
+            ram_pct = round(100 * ram_used / (ram_tot * float(ram_ratio)))
+            host_entity["measures"][0]["percRAMUsed"]["value"] = str(ram_pct)
+        else:
+            del host_entity["measures"][0]["percRAMUsed"]
+        if host.has_key("compute.node.disk.now") and host.has_key("compute.node.disk.tot"):
+            disk_used = int(host["compute.node.disk.now"]["value"])
+            disk_tot = int(host["compute.node.disk.tot"]["value"])
+            host_entity["measures"][0]["percDiskUsed"]["value"] = round((100 * disk_used / disk_tot), 2)
+        else:
+            del host_entity["measures"][0]["percDiskUsed"]
+        return host_entity	
+
+#get region entity for a given regionId
+def get_region_from_monasca(regionid):
+    #print "Getting hosts..."
+    pool = Pool(processes=3)
+    region_metadata_async_result = pool.apply_async(get_metadata_for_region, (regionid,))
+    region_available_ip_async_result = pool.apply_async(get_ip_available_for_region, (regionid,))
+    region_used_ip_async_result = pool.apply_async(get_ip_used_for_region, (regionid,))
+    
+    hostnames = get_all_region_hostnames(regionid)
+    hosts = []
+    for hostname in hostnames:
+        if is_region_hostname_active(regionid,hostname):
+            print hostname
+            hosts.append(get_host_measurements_from_monasca(regionid,hostname)) 
+    
+    #print hosts
+    
+    region_entity = {
+        "_links": {
+            "self": {
+                "href": ""
+            },
+            "hosts": {
+                "href": ""
+            }
+        },
+        "measures": [
+            {
+                "timestamp": "",
+                "ipAssigned": "",
+                "ipAllocated": "",
+                "ipTot": "",
+                "nb_cores_used": 0,
+                # "nb_cores_enabled": 0,
+                "nb_cores": 0,
+                "nb_disk": 0,
+                "nb_ram": 0,
+                "nb_vm": 0,
+                "ram_allocation_ratio": "",
+                "cpu_allocation_ratio": "",
+                "percRAMUsed": 0,
+                "percDiskUsed": 0
+            }
+        ],
+        "components": [
+            {
+                "ceilometer_version": "",
+                "keystone_version": "",
+                "neutron_version": "",
+                "cinder_version": "",
+                "nova_version": "",
+                "glance_version": ""
+            }
+        ],
+        "id": "",
+        "name": "",
+        "country": "",
+        "latitude": "",
+        "longitude": "",
+        "nb_cores": 0,
+        # "nb_cores_enabled": 0,
+        "nb_cores_used": 0,
+        "nb_ram": 0,
+        "nb_disk": 0,
+        "nb_vm": 0,
+        "power_consumption": ""
+    }
+    #print "Getting metadata..."
+    # get from monasca the entity region
+    region_metadata = None
+    try:
+        metadata_result = region_metadata_async_result.get(5)  # get the return value from thread
+        if metadata_result and len(metadata_result) > 0 and metadata_result[0].has_key("id") and metadata_result[0].has_key("dimensions") and metadata_result[0]["dimensions"].has_key("region"):
+            region_metadata = {}
+            region_metadata["timestamp"] = metadata_result[0]["id"]
+            region_metadata["id"] = metadata_result[0]["dimensions"]["region"]
+            region_metadata["measurements"] = get_last_monasca_measurement(metadata_result)
+    except TimeoutError:
+        print("HTTP call to monasca API to retrieve metadata measurements for region did not respond in 5 seconds. No measurements metadata returned")
+        pool.close()
+        pool.join()
+        return None        
+      
+    #print region_metadata
+    
+    if region_metadata is None or region_metadata["measurements"] is None: return None
+
+    if regionid is not None and region_metadata["id"] == regionid and len(region_metadata["measurements"])>2:
+
+        region_entity["_links"]["self"]["href"] = "/monitoring/regions/" + regionid
+        region_entity["_links"]["hosts"]["href"] = "/monitoring/regions/" + regionid + "/hosts"
+        region_entity["measures"][0]["timestamp"] = region_metadata["timestamp"]
+        
+        available_ip = None
+        
+        try:
+            available_ip_result = region_available_ip_async_result.get(5)  # get the return value from thread
+            if available_ip_result:
+                last_available_ip = get_last_monasca_measurement(available_ip_result)
+                if last_available_ip and len(last_available_ip) > 1:
+                    available_ip = last_available_ip[1]
+        except TimeoutError:
+            print("HTTP call to monasca API to retrieve available ip measurements for region did not respond in 5 seconds. No measurements ip returned")
+        
+        used_ip = None
+        
+        try:
+            used_ip_result = region_used_ip_async_result.get(5)  # get the return value from thread
+            if used_ip_result:
+                last_used_ip = get_last_monasca_measurement(used_ip_result)
+                if last_used_ip and len(last_used_ip) > 1:
+                    used_ip = last_used_ip[1]
+        except TimeoutError:
+            print("HTTP call to monasca API to retrieve used ip measurements for region did not respond in 5 seconds. No measurements ip returned")
+        finally:
+            pool.close()
+            pool.join()
+
+        if used_ip:
+            region_entity["measures"][0]["ipAssigned"] = used_ip
+        if available_ip:
+            region_entity["measures"][0]["ipAllocated"] = available_ip
+        if int(region_metadata["measurements"][1]) > 0:
+            region_entity["measures"][0]["ipTot"] = region_metadata["measurements"][1]
+
+        if region_metadata["measurements"][2].has_key('ram_allocation_ratio'):
+            region_entity["measures"][0]["ram_allocation_ratio"] = region_metadata["measurements"][2]["ram_allocation_ratio"]
+        if region_metadata["measurements"][2].has_key('cpu_allocation_ratio'):
+            region_entity["measures"][0]["cpu_allocation_ratio"] = region_metadata["measurements"][2]["cpu_allocation_ratio"]
+
+        region_entity["id"] = region_metadata["id"]
+        region_entity["name"] = get_region_name(regionid)
+        if region_metadata["measurements"][2].has_key('location'):
+            region_entity["country"] = region_metadata["measurements"][2]["location"]
+        if region_metadata["measurements"][2].has_key('latitude'):
+            region_entity["latitude"] = region_metadata["measurements"][2]["latitude"]
+        if region_metadata["measurements"][2].has_key('longitude'):
+            region_entity["longitude"] = region_metadata["measurements"][2]["longitude"]
+
+        #aggragation from virtual machines on region
+        #vms = get_cursor_active_vms_from_mongo(mongodb, regionid)
+        vms = get_vms_from_monasca(regionid)
+        if vms is not None:
+            vms_data = aggr_monasca_vms_data(vms)
+            if vms_data and vms_data.has_key("nb_vm"):
+                region_entity["measures"][0]["nb_vm"] = vms_data["nb_vm"]
+                region_entity["nb_vm"] = vms_data["nb_vm"]
+
+        # aggragation from hosts on region
+        #hosts = get_cursor_hosts_from_mongo(mongodb, regionid)
+        if hosts is not None and hosts!=[]:
+            hosts_data = aggr_monasca_hosts_data(hosts, regionid)
+            if hosts_data:
+                region_entity["nb_ram"] = hosts_data["ramTot"]
+                region_entity["measures"][0]["nb_ram"] = hosts_data["ramTot"]
+                region_entity["nb_disk"] = hosts_data["diskTot"]
+                region_entity["measures"][0]["nb_disk"] = hosts_data["diskTot"]
+                region_entity["nb_cores"] = hosts_data["cpuTot"]
+                region_entity["measures"][0]["nb_cores"] = hosts_data["cpuTot"]
+                region_entity["nb_cores_used"] = hosts_data["cpuNow"]
+                region_entity["measures"][0]["nb_cores_used"] = hosts_data["cpuNow"]
+                region_entity["measures"][0]["percRAMUsed"] = 0
+                region_entity["measures"][0]["percDiskUsed"] = 0
+                if hosts_data["ramTot"] != 0:
+                    if region_metadata["measurements"][2].has_key('ram_allocation_ratio'):
+                        ram_allocation_ratio = float(region_metadata["measurements"][2]["ram_allocation_ratio"])
+                    else:
+                        ram_allocation_ratio = 1.0
+                    region_entity["measures"][0]["percRAMUsed"] = hosts_data["ramNowTot"] / (
+                    hosts_data["ramTot"] * ram_allocation_ratio)
+                if hosts_data["diskTot"] != 0:
+                    region_entity["measures"][0]["percDiskUsed"] = hosts_data["diskNowTot"] / hosts_data["diskTot"]
+
+        # add components versions to region entity
+        if region_metadata["measurements"][2].has_key('ceilometer_version'):
+            region_entity["components"][0]["ceilometer_version"] = region_metadata["measurements"][2]["ceilometer_version"]
+        if region_metadata["measurements"][2].has_key('keystone_version'):
+            region_entity["components"][0]["keystone_version"] = region_metadata["measurements"][2]["keystone_version"]
+        if region_metadata["measurements"][2].has_key('neutron_version'):
+            region_entity["components"][0]["neutron_version"] = region_metadata["measurements"][2]["neutron_version"]
+        if region_metadata["measurements"][2].has_key('cinder_version'):
+            region_entity["components"][0]["cinder_version"] = region_metadata["measurements"][2]["cinder_version"]
+        if region_metadata["measurements"][2].has_key('nova_version'):
+            region_entity["components"][0]["nova_version"] = region_metadata["measurements"][2]["nova_version"]
+        if region_metadata["measurements"][2].has_key('glance_version'):
+            region_entity["components"][0]["glance_version"] = region_metadata["measurements"][2]["glance_version"]
+    else:
+        return None
+    return region_entity
+
+#get instances for a given region
+def get_vms_from_monasca(regionId):
+    vms = get_resources_for_metric(regionId,"instance")
+    return vms
+
+# end Monasca-------------------------------------------------------------------------------
 
 def get_cursor_vms_from_mongo(mongodb, regionid):
     vms = mongodb[app.config["mongodb"]["collectionname"]].find(
@@ -870,6 +1308,41 @@ def aggr_hosts_data(hosts, regionid=None):
         hosts_data["diskTot"] = hosts_data["diskTot"] / hosts.count()
     return hosts_data
 
+#Monasca------------------------------------------------------------------------------
+
+def aggr_monasca_vms_data(vms):
+    """
+    Function that aggregate vm entity data given a collection (cursor retuned from mongo query) of vms
+    """
+    vms_data = {"nb_vm": 0}
+    vms_data["nb_vm"] = len(vms)
+    return vms_data
+
+def aggr_monasca_hosts_data(hosts, regionid=None):
+    """
+    Function that aggregate host entity data given a collection (data retuned from monasca query) of hosts
+    """
+    hosts_data = {"ramTot": 0, "diskTot": 0, "cpuTot": 0, "cpuNow": 0, "ramNowTot": 0, "diskNowTot": 0}
+    for host in hosts:
+        if host.has_key("compute.node.ram.tot"):
+            hosts_data["ramTot"] += int(host["compute.node.ram.tot"]["value"])
+        if host.has_key("compute.node.disk.tot"):
+            hosts_data["diskTot"] += int(host["compute.node.disk.tot"]["value"])
+        if host.has_key("compute.node.cpu.tot"):
+            hosts_data["cpuTot"] += int(host["compute.node.cpu.tot"]["value"])
+        if host.has_key("compute.node.cpu.now"):
+            hosts_data["cpuNow"] += int(host["compute.node.cpu.now"]["value"])
+        if host.has_key("compute.node.ram.now"):
+            hosts_data["ramNowTot"] += int(host["compute.node.ram.now"]["value"])
+        if host.has_key("compute.node.disk.now"):
+            hosts_data["diskNowTot"] += int(host["compute.node.disk.now"]["value"])
+    # Workaround to adjust storage amount if Ceph is used
+    cephStorageRegions = json.loads(app.config["api"]["regionsCephStorage"])
+    if regionid in cephStorageRegions:
+        hosts_data["diskTot"] = hosts_data["diskTot"] / hosts.count()
+    return hosts_data
+
+#end Monasca------------------------------------------------------------------------------
 
 # Argument management
 def arg_parser():
@@ -981,7 +1454,7 @@ def main():
         sys.exit(-1)
 
     # Get a map with config declared in SECTION_TO_LOAD and insert it in bottle app
-    SECTION_TO_LOAD = ["mysql", "mongodb", "mongodbOld", "api", "key", "idm", "oldmonitoring", "newmonitoring", "usageData"]
+    SECTION_TO_LOAD = ["mysql", "profile", "monasca", "keystone", "mongodb", "mongodbOld", "api", "key", "idm", "oldmonitoring", "newmonitoring", "usageData", "metrics"]
     config_map = config_to_dict(section_list=SECTION_TO_LOAD, config=config, app=app)
 
     # Create and install plugin in bottle app
@@ -1003,6 +1476,15 @@ def main():
 
     listen_url = config_map['api']['listen_url']
     listen_port = config_map['api']['listen_port']
+
+    # Setup monasca collector
+    global collector
+    CONF_M_SECTION = 'monasca'
+    keystone_endpoint = config_map["keystone"]["uri"]
+    monasca_endpoint = config_map["monasca"]["uri"]
+    user = config_map["profile"]["user"]
+    password = config_map["profile"]["password"]
+    collector = CollectorMonasca(user, password, monasca_endpoint, keystone_endpoint)
 
     # App runs in infinite loop
     httpserver.serve(app, host=listen_url, port=listen_port)

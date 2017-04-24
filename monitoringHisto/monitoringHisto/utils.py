@@ -52,8 +52,15 @@ def from_monasca_ts_to_datetime_ms(m_timestamp):
     return datetime.strptime(m_timestamp, "%Y-%m-%dT%H:%M:%S.%fZ")
 
 
-def from_monasca_ts_to_datetime_se(m_timestamp):
+def from_datetime_se_to_monasca_ts(m_timestamp):
     return datetime.strptime(m_timestamp, "%Y-%m-%dT%H:%M:%SZ")
+
+def from_datetime_ms_to_monasca_ts(d_timestamp):
+    return d_timestamp.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+
+def from_monasca_ts_to_datetime_se(d_timestamp):
+	return d_timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def get_range_for_daily_agg(start, end):
@@ -74,3 +81,6 @@ def get_last_day_datetime(datetime):
 
 def get_midnight(date):
     return datetime.combine(date, time.min)
+
+def get_datetime_with_delta_sec(delta_sec):
+    return datetime.now() - timedelta(seconds=delta_sec)

@@ -1,0 +1,55 @@
+#+OPTIONS: ':nil *:t -:t ::t <:t H:3 \n:nil ^:nil arch:headline
+#+OPTIONS: author:t broken-links:nil c:nil creator:nil
+#+OPTIONS: d:(not "LOGBOOK") date:t e:t email:nil f:t inline:t num:nil
+#+OPTIONS: p:nil pri:nil prop:nil stat:t tags:t tasks:t tex:t
+#+OPTIONS: timestamp:t title:t toc:t todo:t |:t
+#+TITLE: Field definition
+#+DATE: <2017-04-23 Sun>
+#+AUTHOR: Katarzyna Di Meo
+#+EMAIL: kdimeo@fbk.eu
+#+LANGUAGE: en
+#+SELECT_TAGS: export
+#+EXCLUDE_TAGS: noexport
+#+CREATOR: Emacs 25.1.1 (Org mode 9.0.5)
+  The following document aims at summarizes the values exported by the [[https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI][monitoringAPI]] in order to have a clear mapping between the metrics collected in the region and the related computed/aggregated metrics provided by the monitoringAPI.
+
+* Entity type: 'host'
+   - percCPULoad ::
+	Is the =compute.node.cpu.percent=: compute host CPU utilization in percentage 
+
+   - percRAMUsed ::
+	Computed as 100 * =compute.node.ram.now= / (=compute.node.ram.tot= * =ram_allocation_ratio=)
+
+   - percDiskUsed ::
+	Computed as 100 * =compute.node.disk.now= / =compute.node.disk.tot=
+
+* Entity type: 'region'
+   - ipAssigned ::
+	Is the =region.used_ip= 
+
+   - ipAllocated ::
+	Is the =region.allocated_ip=
+
+   - ipTot ::
+	Is the =region.pool_ip=
+
+   - nb_ram ::
+	Sum of the total physical memory (in MB), =compute.node.ram.tot=, available in all the hosts.
+
+   - nb_disk ::
+	Sum of the total physical disk size (in GB), =compute.node.disk.tot=, available in all the hosts. If region uses Ceph Storage, this sum is divided for the number of hosts.
+
+   - nb_cores ::
+	Sum of the total number of physical CPUs, =compute.node.cpu.tot=, available in all the hosts.
+
+   - nb_cores_used ::
+	Sum of the total number of physical CPUs, =compute.node.cpu.now=, allocated in all the hosts.
+
+   - percRAMUsed ::
+	Computed as (sum of hosts' =compute.node.ram.now=) / ((sum of hosts' =compute.node.ram.tot=) * =ram_allocation_ratio=)
+
+   - percDiskUsed ::
+	Computed as (sum of hosts' =compute.node.disk.now=) / (sum of hosts' =compute.node.disk.tot=)
+
+   - nb_vm ::
+	Is the number of all the instances that run on all the hosts

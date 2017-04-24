@@ -31,6 +31,58 @@ class CollectorMonasca:
         for metric in metrics:
             names.add(metric['name'])
         return names
+ 
+#------------------------------------------------------------------
+
+    def get_resources_for_metric(self, regionid, metricName):
+        params = {}
+        dimensions = {'region' : regionid}
+        params['dimensions'] = dimensions
+        params['name'] = metricName
+        metrics = self.__perform_monasca_query(self.__monasca_client.metrics.list, params)
+        resources = set()
+        if metrics:
+            for metric in metrics:
+                resources.add(metric['dimensions']['resource_id'])
+        return resources
+    
+    def get_measurements_for_hostname(self, regionid, metricName, hostname, start_timestamp):
+        params = {}
+        dimensions = {'region' : regionid, 'resource_id' : hostname}
+        params['dimensions'] = dimensions
+        params['name'] = metricName
+        params['start_time'] = start_timestamp
+        measurements = self.__perform_monasca_query(self.__monasca_client.metrics.list_measurements, params)
+        return measurements
+
+    def get_pool_ip_for_region(self, regionid, start_timestamp):
+        params = {}
+        dimensions = {'region' : regionid}
+        params['dimensions'] = dimensions
+        params['name'] = "region.pool_ip"
+        params['start_time'] = start_timestamp
+        measurements = self.__perform_monasca_query(self.__monasca_client.metrics.list_measurements, params)
+        return measurements
+
+    def get_allocated_ip_for_region(self, regionid, start_timestamp):
+        params = {}
+        dimensions = {'region' : regionid}
+        params['dimensions'] = dimensions
+        params['name'] = "region.allocated_ip"
+        params['start_time'] = start_timestamp
+        measurements = self.__perform_monasca_query(self.__monasca_client.metrics.list_measurements, params)
+        return measurements
+
+    def get_used_ip_for_region(self, regionid, start_timestamp):
+        params = {}
+        dimensions = {'region' : regionid}
+        params['dimensions'] = dimensions
+        params['name'] = "region.used_ip"
+        params['start_time'] = start_timestamp
+        measurements = self.__perform_monasca_query(self.__monasca_client.metrics.list_measurements, params)
+        return measurements
+
+#------------------------------------------------------------------
 
     def get_processes(self, regionid):
         params = {}
