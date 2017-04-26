@@ -23,6 +23,9 @@
    - percDiskUsed ::
 	Computed as 100 * =compute.node.disk.now= / =compute.node.disk.tot=
 
+   - timestamp ::
+	Is the timestamp associated to the most recent measure
+
 * Entity type: 'region'
    - ipAssigned ::
 	Is the =region.used_ip= 
