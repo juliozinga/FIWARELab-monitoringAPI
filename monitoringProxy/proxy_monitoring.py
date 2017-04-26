@@ -816,7 +816,7 @@ def get_last_monasca_measurement(measurements_dict):
 def get_metadata_for_region(regionid):
     start = utils.get_datetime_with_delta_sec(int(app.config["api"]["regionTTL"]))
     start_timestamp = utils.from_datetime_ms_to_monasca_ts(start)
-    print start_timestamp
+    #print start_timestamp
     return collector.get_pool_ip_for_region(regionid,start_timestamp)
 
 #get from Monasca the updated number of allocated ips (region.allocated_ip) of a given region
@@ -914,9 +914,12 @@ def get_host_measurements_from_monasca(regionid,hostname):
                 if last_measurement and len(last_measurement) > 1:
                     measurements_data = {}                    
                     measurements_data["value"] = last_measurement[1]
-                    measurements_data["timestamp"] = last_measurement[0]
+                    #timestamp is a Datetime
+                    measurements_data["timestamp"] =  utils.from_monasca_ts_to_datetime_ms(last_measurement[0])
                     metric_name = result[0]["name"]
                     measurements[metric_name] = measurements_data
+                    if (measurements.has_key("timestamp") and measurements["timestamp"] < measurements_data["timestamp"]) or not (measurements.has_key("timestamp")):
+                        measurements["timestamp"] = measurements_data["timestamp"]
                     #print metric_name+" -- "+last_measurement[0]+" -- "+str(last_measurement[1])
                 
         except TimeoutError:
@@ -1006,12 +1009,9 @@ def get_host_from_monasca(regionid,hostname):
         host_entity["regionid"] = regionid
         host_entity["hostid"] = hostid
         host_entity["role"] = "compute"
-        #if host["attrs"].has_key("_timestamp"):
-            #host_entity["measures"][0]["timestamp"] = host["attrs"]["_timestamp"]["value"]
-        #set timestamp = to the timestamp of one of the updated metrics measures found
-        first_host_attribute = host.itervalues().next()
-        if first_host_attribute.has_key("timestamp"):
-            host_entity["measures"][0]["timestamp"] = utils.from_monasca_ts_to_datetime_ms(first_host_attribute["timestamp"]).strftime('%s')
+        #set timestamp = to the most recent timestamp of the metrics measures found
+        if host.has_key("timestamp"):
+            host_entity["measures"][0]["timestamp"] = host["timestamp"].strftime('%s')
         if host.has_key("compute.node.cpu.percent"):
             cpu_pct = round(float(host["compute.node.cpu.percent"]["value"]), 2)
             host_entity["measures"][0]["percCPULoad"]["value"] = str(cpu_pct)
