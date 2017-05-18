@@ -56,6 +56,6 @@
    #+END_SRC
 
    Run the following in the same folder to import all regions
-   #+BEGIN_SRC
+   #+BEGIN_SRC sh
    for region in $(cat region-list.txt) ; do mysql -u NEW_DB_NAME -pDB_PWD NEW_DB_NAME < ./"$region"_host_service_old_db.sql; done
    #+END_SRC
