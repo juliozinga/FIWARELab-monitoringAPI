@@ -24,6 +24,7 @@ import urllib
 import copy
 import decimal
 import os
+import traceback
 # Add the FIWARELab-monitoringAPI folder path to the sys.path list
 sys.path.append('/path/to/the/FIWARELab-monitoringAPI')
 import monitoringHisto.monitoringHisto
@@ -38,31 +39,49 @@ HEADER_AUTH = "X-Auth-Token"
 
 
 # Return if the token is authorized with auth_url
-def is_idm_authorized(auth_url, token_map):
-    try:
-        if HEADER_AUTH in token_map:
-            token_string = token_map[HEADER_AUTH]
-        elif "Authorization" in token_map:
-            token_string = base64.b64decode(token_map["Authorization"].split(" ")[1])
-        else:
-            raise Exception('Header not known')
-    except Exception as e:
-        print "Error in decoding token: " + str(e)
-        return False
-    try:
-        url_request = auth_url + "/user?access_token=" + token_string
-        headers = {}
-        headers['accept'] = 'application/json'
-        headers['user-group'] = 'none'
-        req = urllib2.Request(url_request)
-        req.headers = headers
-        response_idm = urllib2.urlopen(req)
-        UserJson = response_idm.read()
-    except Exception as e:
-        print "Error in authentication: " + str(e)
-        return False
-    return True
+#def is_idm_authorized(auth_url, token_map):
+    #try:
+        #if HEADER_AUTH in token_map:
+            #token_string = token_map[HEADER_AUTH]
+        #elif "Authorization" in token_map:
+            #token_string = base64.b64decode(token_map["Authorization"].split(" ")[1])
+        #else:
+            #raise Exception('Header not known')
+    #except Exception as e:
+        #print "Error in decoding token: " + str(e)
+        #return False
+    #try:
+        #url_request = auth_url + "/user?access_token=" + token_string
+        #headers = {}
+        #headers['accept'] = 'application/json'
+        #headers['user-group'] = 'none'
+        #req = urllib2.Request(url_request)
+        #req.headers = headers
+        #response_idm = urllib2.urlopen(req)
+        #UserJson = response_idm.read()
+    #except Exception as e:
+        #print "Error in authentication: " + str(e)
+        #return False
+    #return True
 
+# Return if the org or app is authorized. Works with forked Pep-Proxy
+def is_idm_authorized(request_headers, regionId):
+    #if request_headers.get("Authorization") is not None:
+        #token_string = base64.b64decode(request_headers.get("Authorization").split(" ")[1])
+    #elif request_headers.get(HEADER_AUTH) is not None:
+        #token_string = request_headers.get(HEADER_AUTH)
+    
+    if request_headers.get("X-App-Id") is not None:
+        trusted_apps = json.loads(config_map['api']['trusted_app'])
+        if request_headers.get("X-App-Id") in trusted_apps:
+            return True
+    elif request_headers.get("X-Organizations") is not None:
+        for organization in request_headers.get("X-Organizations"):
+            if organization["id"] == config_map['api']['admin_org'] or organization["id"] == config_map['api']['fed_man_org'] or organization["id"] == config_map['api']['sla_org'] or (organization["id"] == config_map['api']['io_org'] and organization["displayName"] == regionId):
+                return True
+    
+    print "no X-App-Id or X-Organizations headers found"
+    return False
 
 # Get token from IDM
 def get_token_auth(url, consumer_key, consumer_secret, username, password, convert_to_64=True):
@@ -261,7 +280,8 @@ def get_all_hosts(mongodb, regionid="ID of the region"):
     if not is_region_on(regionid):
         abort(404)
     #if is_region_new(regionid):
-    if not is_idm_authorized(auth_url=app.config["idm"]["account_url"], token_map=get_token_from_response(request)):
+    #if not is_idm_authorized(auth_url=app.config["idm"]["account_url"], token_map=get_token_from_response(request)):
+    if not is_idm_authorized(request.headers, regionid):
         abort(401)
     #hosts = get_hosts_from_mongo(mongodb=mongodb, regionid=regionid)
     hosts = get_hosts_from_monasca(regionid)
@@ -279,7 +299,8 @@ def get_host(mongodb, regionid="ID of the region", hostid="ID of the host"):
     if not is_region_on(regionid):
         abort(404)
     if is_region_new(regionid) and request.params.getone("since") is None:
-        if not is_idm_authorized(auth_url=app.config["idm"]["account_url"], token_map=get_token_from_response(request)):
+        #if not is_idm_authorized(auth_url=app.config["idm"]["account_url"], token_map=get_token_from_response(request)):
+        if not is_idm_authorized(request.headers, regionid):
             abort(401)
         #region = get_doc_region_from_mongo(mongodb, regionid)
         #host = get_host_from_mongo(mongodb, region, hostid)
@@ -401,7 +422,8 @@ def get_all_images_by_region(mongodb, regionid="ID of the region"):
 def get_image_by_region(mongodb, regionid="ID of the region", imageid="Image id"):
     if not is_region_on(regionid):
         abort(404)
-    if is_idm_authorized(auth_url=app.config["idm"]["account_url"], token_map=get_token_from_response(response)):
+    #if is_idm_authorized(auth_url=app.config["idm"]["account_url"], token_map=get_token_from_response(response)):
+    if is_idm_authorized(request.headers, regionid):
         image = get_image_from_mongo(mongodb=mongodb, imageid=imageid, regionid=regionid)
     else:
         abort(401)
@@ -842,7 +864,7 @@ def get_measurements_for_hostname(regionid,metricName,hostname):
     return collector.get_measurements_for_hostname(regionid,metricName,hostname,start_timestamp)
 
 #get a set of all hosts ids (active and inactive) for a given region (checking all the compute metrics specified in the config file)
-def get_all_region_hostnames(regionid):
+def get_all_region_hostnames(regionid, active = True):
     metricsNames = json.loads(app.config["metrics"]["computeMetrics"])
     hostnames = set()
     pool = Pool(processes=len(metricsNames))
@@ -856,31 +878,68 @@ def get_all_region_hostnames(regionid):
         
     pool.close()
     pool.join()
+    
+    if(active):        
+        hostnames_active = []
+        
+        pool = Pool(processes=len(hostnames))
+        
+        async_results = [pool.apply_async(is_region_hostname_active, (regionid,hostname)) for hostname in hostnames]
+        
+        for res in async_results:
+            try:
+                result = res.get(timeout=10)
+                if result and len(result) > 0:          
+                    hostnames_active.append(result)
+                
+            except TimeoutError:
+                print("HTTP call to monasca API to check if hostname was active (checking its measures) did not respond in 10 seconds. No measurements data returned")
+        pool.close()
+        pool.join()
+        #for hostname in hostnames:
+            #if is_region_hostname_active(regionid,hostname):
+                #hostnames_active.append(hostname)
+        return hostnames_active
     return hostnames
+
+#check if a region host is active or not, looking if at least one of its metrics' mesurements is updated
+#def is_region_hostname_active(regionid,hostname):
+    #metricsNames = json.loads(app.config["metrics"]["computeMetrics"])
+    #pool = Pool(processes=len(metricsNames))
+    
+    #async_results = [pool.apply_async(get_measurements_for_hostname, (regionid,metricName,hostname)) for metricName in metricsNames]
+    ##metric_not_empty_count = 0
+    #for res in async_results:
+        #try:
+            #result = res.get(timeout=5)
+            #if result and len(result) > 0 and result[0].has_key("measurements"):                
+                #if len(result[0]["measurements"]) > 0:
+                    #pool.close()
+                    #pool.join()
+                    ##metric_not_empty_count += 1
+                    #return True
+                
+        #except TimeoutError:
+            #print("HTTP call to monasca API to retrieve measurements for hostname did not respond in 5 seconds. No measurements data returned")
+    #pool.close()
+    #pool.join()
+    ##if metric_not_empty_count == len(metricsNames):
+        ##return True
+    #return False
 
 #check if a region host is active or not, looking if at least one of its metrics' mesurements is updated
 def is_region_hostname_active(regionid,hostname):
     metricsNames = json.loads(app.config["metrics"]["computeMetrics"])
-    pool = Pool(processes=len(metricsNames))
     
-    async_results = [pool.apply_async(get_measurements_for_hostname, (regionid,metricName,hostname)) for metricName in metricsNames]
-    #metric_not_empty_count = 0
-    for res in async_results:
+    for metricName in metricsNames:
         try:
-            result = res.get(timeout=5)
+            result = get_measurements_for_hostname(regionid,metricName,hostname)
             if result and len(result) > 0 and result[0].has_key("measurements"):                
                 if len(result[0]["measurements"]) > 0:
-                    pool.close()
-                    pool.join()
-                    #metric_not_empty_count += 1
-                    return True
-                
-        except TimeoutError:
-            print("HTTP call to monasca API to retrieve measurements for hostname did not respond in 5 seconds. No measurements data returned")
-    pool.close()
-    pool.join()
-    #if metric_not_empty_count == len(metricsNames):
-        #return True
+                    return hostname               
+        except Exception:
+            print("HTTP call to monasca API to retrieve measurements for hostname (in order to check if it is active) gave error. No measurements data returned")
+            print(traceback.format_exc())
     return False
 
 #get host entity list dict for a given region
@@ -889,26 +948,52 @@ def get_hosts_from_monasca(regionid):
     
     result_dict = {"hosts": [], "links": {"self": {"href": "/monitoring/regions/" + regionid + "/hosts"}}}
     for hostname in hostnames:
-        if is_region_hostname_active(regionid,hostname):
-            hostid = hostname.split("_")[0]
-            base_dict_list["_links"]["self"]["href"] = "/monitoring/regions/" + regionid + "/hosts/" + hostid
-            base_dict_list["id"] = hostid
-            result_dict["hosts"].append(copy.deepcopy(base_dict_list))
+        #if is_region_hostname_active(regionid,hostname):
+        hostid = hostname.split("_")[0]
+        base_dict_list["_links"]["self"]["href"] = "/monitoring/regions/" + regionid + "/hosts/" + hostid
+        base_dict_list["id"] = hostid
+        result_dict["hosts"].append(copy.deepcopy(base_dict_list))
 
     return result_dict 
 
 #get host measurements for a given region and host (metrics specified in config file)
-def get_host_measurements_from_monasca(regionid,hostname):
+def get_host_measurements_from_monasca(regionid,hostname,parallel = True):
     metricsNames = json.loads(app.config["metrics"]["computeMetrics"])
-    pool = Pool(processes=len(metricsNames))
     
-    measurements = {}
+    if(parallel):
+        pool = Pool(processes=len(metricsNames))
     
-    async_results = [pool.apply_async(get_measurements_for_hostname, (regionid,metricName,hostname)) for metricName in metricsNames]
+        measurements = {}
+    
+        async_results = [pool.apply_async(get_measurements_for_hostname, (regionid,metricName,hostname)) for metricName in metricsNames]
 
-    for res in async_results:
+        for res in async_results:
+            try:
+                result = res.get(timeout=5)
+                if result and len(result) > 0 and result[0].has_key("name"):        
+                    last_measurement = get_last_monasca_measurement(result)
+                    if last_measurement and len(last_measurement) > 1:
+                        measurements_data = {}                    
+                        measurements_data["value"] = last_measurement[1]
+                        #timestamp is a Datetime
+                        measurements_data["timestamp"] =  utils.from_monasca_ts_to_datetime_ms(last_measurement[0])
+                        metric_name = result[0]["name"]
+                        measurements[metric_name] = measurements_data
+                        if (measurements.has_key("timestamp") and measurements["timestamp"] < measurements_data["timestamp"]) or not (measurements.has_key("timestamp")):
+                            measurements["timestamp"] = measurements_data["timestamp"]
+                        #print metric_name+" -- "+last_measurement[0]+" -- "+str(last_measurement[1])
+                
+            except TimeoutError:
+                print("HTTP call to monasca API to retrieve measurements for hostname did not respond in 5 seconds. No measurements data returned")
+        pool.close()
+        pool.join()
+        return measurements
+
+    measurements = {}
+    for metricName in metricsNames:
         try:
-            result = res.get(timeout=5)
+            result = get_measurements_for_hostname(regionid,metricName,hostname)
+
             if result and len(result) > 0 and result[0].has_key("name"):        
                 last_measurement = get_last_monasca_measurement(result)
                 if last_measurement and len(last_measurement) > 1:
@@ -920,12 +1005,10 @@ def get_host_measurements_from_monasca(regionid,hostname):
                     measurements[metric_name] = measurements_data
                     if (measurements.has_key("timestamp") and measurements["timestamp"] < measurements_data["timestamp"]) or not (measurements.has_key("timestamp")):
                         measurements["timestamp"] = measurements_data["timestamp"]
-                    #print metric_name+" -- "+last_measurement[0]+" -- "+str(last_measurement[1])
-                
-        except TimeoutError:
-            print("HTTP call to monasca API to retrieve measurements for hostname did not respond in 5 seconds. No measurements data returned")
-    pool.close()
-    pool.join()
+        except Exception:
+            print("HTTP call to monasca API to retrieve measurements for hostname gave error. No measurements data returned")
+            print(traceback.format_exc())
+    
     return measurements
 
 #get host entity for a given region and hostId 
@@ -984,7 +1067,7 @@ def get_host_from_monasca(regionid,hostname):
 
     region_metadata = None
     try:
-        metadata_result = async_result.get(5)  # get the return value from thread
+        metadata_result = async_result.get(10)  # get the return value from thread
         if metadata_result:
             region_metadata = get_last_monasca_measurement(metadata_result)
     except TimeoutError:
@@ -1042,10 +1125,25 @@ def get_region_from_monasca(regionid):
     
     hostnames = get_all_region_hostnames(regionid)
     hosts = []
-    for hostname in hostnames:
-        if is_region_hostname_active(regionid,hostname):
-            print hostname
-            hosts.append(get_host_measurements_from_monasca(regionid,hostname)) 
+    pool_for_hosts = Pool(processes=len(hostnames))
+    
+    async_results = [pool_for_hosts.apply_async(get_host_measurements_from_monasca, (regionid,hostname,False)) for hostname in hostnames]
+
+    for res in async_results:
+        try:
+            result = res.get(timeout=10)
+            if result and len(result) > 0:     
+                #print res
+                hosts.append(result) 
+        except TimeoutError:
+                print("HTTP call to monasca API to retrieve details for hostname did not respond in 10 seconds. No measurements data returned")
+    pool_for_hosts.close()
+    pool_for_hosts.join()
+    
+    #for hostname in hostnames:
+        ##if is_region_hostname_active(regionid,hostname):
+        #print hostname
+        #hosts.append(get_host_measurements_from_monasca(regionid,hostname,False)) 
     
     #print hosts
     
