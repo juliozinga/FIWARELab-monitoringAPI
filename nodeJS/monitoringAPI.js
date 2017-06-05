@@ -458,7 +458,7 @@ function root(res, statusType, authToken) {
   res.writeHead(statusType, {
     'Content-Type': 'json'
   });
-  res.end('{"_links": {"self": { "href": "/" },"regions": { "href": "/monitoring/regions", "templated": true }"host2hosts": { "href": "/monitoring/host2hosts", "templated": true }}}');
+  res.end('{"_links": {"self": { "href": "/" },"regions": { "href": "/monitoring/regions", "templated": true },"host2hosts": { "href": "/monitoring/host2hosts", "templated": true }}}');
 }
 
 function errorFunction(res, errType, authToken) {
