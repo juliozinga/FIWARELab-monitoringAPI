@@ -25,10 +25,9 @@ import copy
 import decimal
 import os
 import traceback
-# Add the FIWARELab-monitoringAPI folder path to the sys.path list
 sys.path.append('/path/to/the/FIWARELab-monitoringAPI')
 import monitoringHisto.monitoringHisto
-from monitoringHisto.monitoringHisto import utils
+from monitoringHisto.monitoringHisto import utils as histo_utils
 from monitoringHisto.monitoringHisto.CollectorMonasca import CollectorMonasca
 
 ###Main bottle app
@@ -171,7 +170,7 @@ def is_region_new(regionid):
 
 
 '''
-Return True if region use new monitoring system false otherwise
+Return region name of a region taht use new monitoring system regionid otherwise
 '''
 
 
@@ -180,6 +179,17 @@ def get_region_name(regionid):
     if not region_name:
         return regionid
     return region_name
+
+'''
+Return region data(country,lat and lng) of a region taht use new monitoring system None otherwise
+'''
+
+
+def get_region_data(regionid):
+    region_data = app.config["main_config"]["regionData"][regionid]
+    if not region_data:
+        return None
+    return json.loads(region_data)
 
 
 '''
@@ -258,10 +268,12 @@ def get_region(mongodb, regionid="ID of the region"):
         #region = get_region_from_mongo(mongodb=mongodb, regionid=regionid)
         region = get_region_from_monasca(regionid=regionid)
         
-        if region is not None:
-            return region
-        else:
+        if region is None:
             abort(404)
+        else if region == 404:
+            abort(404,{'name':get_region_name(regionid), 'data':get_region_data(regionid))
+        else
+            return region
     else:
         return fwd_request("/monitoring/regions/" + regionid, request=request, regionid=regionid)
 
@@ -836,21 +848,21 @@ def get_last_monasca_measurement(measurements_dict):
   
 #get from Monasca the updated metadata and the number of total ips (region.pool_ip) of a given region
 def get_metadata_for_region(regionid):
-    start = utils.get_datetime_with_delta_sec(int(app.config["api"]["regionTTL"]))
-    start_timestamp = utils.from_datetime_ms_to_monasca_ts(start)
+    start = histo_utils.get_datetime_with_delta_sec(int(app.config["api"]["regionTTL"]))
+    start_timestamp = histo_utils.from_datetime_ms_to_monasca_ts(start)
     #print start_timestamp
     return collector.get_pool_ip_for_region(regionid,start_timestamp)
 
 #get from Monasca the updated number of allocated ips (region.allocated_ip) of a given region
 def get_ip_available_for_region(regionid):
-    start = utils.get_datetime_with_delta_sec(int(app.config["api"]["regionTTL"]))
-    start_timestamp = utils.from_datetime_ms_to_monasca_ts(start)
+    start = histo_utils.get_datetime_with_delta_sec(int(app.config["api"]["regionTTL"]))
+    start_timestamp = histo_utils.from_datetime_ms_to_monasca_ts(start)
     return collector.get_allocated_ip_for_region(regionid,start_timestamp)
 
 #get from Monasca the updated number of used ips (region.used_ip) of a given region
 def get_ip_used_for_region(regionid):
-    start = utils.get_datetime_with_delta_sec(int(app.config["api"]["regionTTL"]))
-    start_timestamp = utils.from_datetime_ms_to_monasca_ts(start)
+    start = histo_utils.get_datetime_with_delta_sec(int(app.config["api"]["regionTTL"]))
+    start_timestamp = histo_utils.from_datetime_ms_to_monasca_ts(start)
     return collector.get_used_ip_for_region(regionid,start_timestamp)
 
 #get from Monasca a set of resources ids for a given metric and a region 
@@ -859,8 +871,8 @@ def get_resources_for_metric(regionid,metricName):
 
 #get from Monasca the updated hosts measurements for a given metric, region and host
 def get_measurements_for_hostname(regionid,metricName,hostname):	
-    start = utils.get_datetime_with_delta_sec(int(app.config["api"]["hostTTL"]))
-    start_timestamp = utils.from_datetime_ms_to_monasca_ts(start)
+    start = histo_utils.get_datetime_with_delta_sec(int(app.config["api"]["hostTTL"]))
+    start_timestamp = histo_utils.from_datetime_ms_to_monasca_ts(start)
     return collector.get_measurements_for_hostname(regionid,metricName,hostname,start_timestamp)
 
 #get a set of all hosts ids (active and inactive) for a given region (checking all the compute metrics specified in the config file)
@@ -976,7 +988,7 @@ def get_host_measurements_from_monasca(regionid,hostname,parallel = True):
                         measurements_data = {}                    
                         measurements_data["value"] = last_measurement[1]
                         #timestamp is a Datetime
-                        measurements_data["timestamp"] =  utils.from_monasca_ts_to_datetime_ms(last_measurement[0])
+                        measurements_data["timestamp"] =  histo_utils.from_monasca_ts_to_datetime_ms(last_measurement[0])
                         metric_name = result[0]["name"]
                         measurements[metric_name] = measurements_data
                         if (measurements.has_key("timestamp") and measurements["timestamp"] < measurements_data["timestamp"]) or not (measurements.has_key("timestamp")):
@@ -1000,7 +1012,7 @@ def get_host_measurements_from_monasca(regionid,hostname,parallel = True):
                     measurements_data = {}                    
                     measurements_data["value"] = last_measurement[1]
                     #timestamp is a Datetime
-                    measurements_data["timestamp"] =  utils.from_monasca_ts_to_datetime_ms(last_measurement[0])
+                    measurements_data["timestamp"] =  histo_utils.from_monasca_ts_to_datetime_ms(last_measurement[0])
                     metric_name = result[0]["name"]
                     measurements[metric_name] = measurements_data
                     if (measurements.has_key("timestamp") and measurements["timestamp"] < measurements_data["timestamp"]) or not (measurements.has_key("timestamp")):
@@ -1215,7 +1227,7 @@ def get_region_from_monasca(regionid):
       
     #print region_metadata
     
-    if region_metadata is None or region_metadata["measurements"] is None: return None
+    if region_metadata is None or region_metadata["measurements"] is None: return 404
 
     if regionid is not None and region_metadata["id"] == regionid and len(region_metadata["measurements"])>2:
 
