@@ -894,20 +894,21 @@ def get_all_region_hostnames(regionid, active = True):
     if(active):        
         hostnames_active = []
         
-        pool = Pool(processes=len(hostnames))
+        if(len(hostnames) >0):
+            pool = Pool(processes=len(hostnames))
         
-        async_results = [pool.apply_async(is_region_hostname_active, (regionid,hostname)) for hostname in hostnames]
+            async_results = [pool.apply_async(is_region_hostname_active, (regionid,hostname)) for hostname in hostnames]
         
-        for res in async_results:
-            try:
-                result = res.get(timeout=10)
-                if result and len(result) > 0:          
-                    hostnames_active.append(result)
+            for res in async_results:
+                try:
+                    result = res.get(timeout=10)
+                    if result and len(result) > 0:          
+                        hostnames_active.append(result)
                 
-            except TimeoutError:
-                print("HTTP call to monasca API to check if hostname was active (checking its measures) did not respond in 10 seconds. No measurements data returned")
-        pool.close()
-        pool.join()
+                except TimeoutError:
+                    print("HTTP call to monasca API to check if hostname was active (checking its measures) did not respond in 10 seconds. No measurements data returned")
+            pool.close()
+            pool.join()
         #for hostname in hostnames:
             #if is_region_hostname_active(regionid,hostname):
                 #hostnames_active.append(hostname)
@@ -1561,6 +1562,7 @@ def main():
         app.config['main_config'] = dict()
         app.config['main_config']['regionNew'] = dict(main_config.items('regionNew'))
         app.config['main_config']['regionNames'] = dict(main_config.items('regionNames'))
+        app.config['main_config']['regionData'] = dict(main_config.items('regionData'))
     except Exception as e:
         print("Problem parsing main config file: {}").format(e)
         sys.exit(-1)
