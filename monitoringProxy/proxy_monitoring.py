@@ -28,6 +28,7 @@ import traceback
 sys.path.append('/path/to/the/FIWARELab-monitoringAPI')
 import monitoringHisto.monitoringHisto
 from monitoringHisto.monitoringHisto import utils as histo_utils
+from monitoringProxy import utils as proxy_utils
 from monitoringHisto.monitoringHisto.CollectorMonasca import CollectorMonasca
 
 ###Main bottle app
@@ -270,7 +271,7 @@ def get_region(mongodb, regionid="ID of the region"):
         
         if region is None:
             abort(404)
-        else if region == 404:
+        elif region == 404:
             abort(404,{'name':get_region_name(regionid), 'data':get_region_data(regionid))
         else
             return region
@@ -665,7 +666,7 @@ def get_region_from_mongo(mongodb, regionid):
 
         region_entity["_links"]["self"]["href"] = "/monitoring/regions/" + regionid
         region_entity["_links"]["hosts"]["href"] = "/monitoring/regions/" + regionid + "/hosts"
-        d = datetime.datetime.fromtimestamp(int(region["modDate"]), utils.UTC())
+        d = datetime.datetime.fromtimestamp(int(region["modDate"]), proxy_utils.UTC())
         region_entity["measures"][0]["timestamp"] = d.strftime("%Y-%m-%dT%H:%M:%S.000Z")
         if region["attrs"].has_key('ipUsed'):
             region_entity["measures"][0]["ipAssigned"] = region["attrs"]["ipUsed"]["value"]
@@ -1350,7 +1351,7 @@ def get_cursor_vms_from_mongo(mongodb, regionid):
 
 def get_cursor_active_vms_from_mongo(mongodb, regionid):
 
-    now = utils.get_timestamp()
+    now = proxy_utils.get_timestamp()
     ts_limit = now - int(app.config["api"]["vmTTL"])
     if strtobool(app.config["api"]["vmCheckActive"]):
         vms = mongodb[app.config["mongodb"]["collectionname"]].find(
