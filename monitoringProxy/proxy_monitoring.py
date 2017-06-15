@@ -273,7 +273,7 @@ def get_region(mongodb, regionid="ID of the region"):
             abort(404)
         elif region == 404:
             abort(404,{'name':get_region_name(regionid), 'data':get_region_data(regionid)})
-        else
+        else:
             return region
     else:
         return fwd_request("/monitoring/regions/" + regionid, request=request, regionid=regionid)
