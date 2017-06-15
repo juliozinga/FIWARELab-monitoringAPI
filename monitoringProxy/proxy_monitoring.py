@@ -272,7 +272,7 @@ def get_region(mongodb, regionid="ID of the region"):
         if region is None:
             abort(404)
         elif region == 404:
-            abort(404,{'name':get_region_name(regionid), 'data':get_region_data(regionid))
+            abort(404,{'name':get_region_name(regionid), 'data':get_region_data(regionid)})
         else
             return region
     else:
