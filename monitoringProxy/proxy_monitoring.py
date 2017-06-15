@@ -28,7 +28,6 @@ import traceback
 sys.path.append('/path/to/the/FIWARELab-monitoringAPI')
 import monitoringHisto.monitoringHisto
 from monitoringHisto.monitoringHisto import utils as histo_utils
-from monitoringProxy import utils as proxy_utils
 from monitoringHisto.monitoringHisto.CollectorMonasca import CollectorMonasca
 
 ###Main bottle app
@@ -666,7 +665,7 @@ def get_region_from_mongo(mongodb, regionid):
 
         region_entity["_links"]["self"]["href"] = "/monitoring/regions/" + regionid
         region_entity["_links"]["hosts"]["href"] = "/monitoring/regions/" + regionid + "/hosts"
-        d = datetime.datetime.fromtimestamp(int(region["modDate"]), proxy_utils.UTC())
+        d = datetime.datetime.fromtimestamp(int(region["modDate"]), utils.UTC())
         region_entity["measures"][0]["timestamp"] = d.strftime("%Y-%m-%dT%H:%M:%S.000Z")
         if region["attrs"].has_key('ipUsed'):
             region_entity["measures"][0]["ipAssigned"] = region["attrs"]["ipUsed"]["value"]
@@ -1138,20 +1137,22 @@ def get_region_from_monasca(regionid):
     
     hostnames = get_all_region_hostnames(regionid)
     hosts = []
-    pool_for_hosts = Pool(processes=len(hostnames))
     
-    async_results = [pool_for_hosts.apply_async(get_host_measurements_from_monasca, (regionid,hostname,False)) for hostname in hostnames]
+    if len(hostnames) > 0:
+        pool_for_hosts = Pool(processes=len(hostnames))
+    
+        async_results = [pool_for_hosts.apply_async(get_host_measurements_from_monasca, (regionid,hostname,False)) for hostname in hostnames]
 
-    for res in async_results:
-        try:
-            result = res.get(timeout=10)
-            if result and len(result) > 0:     
-                #print res
-                hosts.append(result) 
-        except TimeoutError:
-                print("HTTP call to monasca API to retrieve details for hostname did not respond in 10 seconds. No measurements data returned")
-    pool_for_hosts.close()
-    pool_for_hosts.join()
+        for res in async_results:
+            try:
+                result = res.get(timeout=10)
+                if result and len(result) > 0:     
+                    #print res
+                    hosts.append(result) 
+            except TimeoutError:
+                    print("HTTP call to monasca API to retrieve details for hostname did not respond in 10 seconds. No measurements data returned")
+        pool_for_hosts.close()
+        pool_for_hosts.join()
     
     #for hostname in hostnames:
         ##if is_region_hostname_active(regionid,hostname):
@@ -1351,7 +1352,7 @@ def get_cursor_vms_from_mongo(mongodb, regionid):
 
 def get_cursor_active_vms_from_mongo(mongodb, regionid):
 
-    now = proxy_utils.get_timestamp()
+    now = utils.get_timestamp()
     ts_limit = now - int(app.config["api"]["vmTTL"])
     if strtobool(app.config["api"]["vmCheckActive"]):
         vms = mongodb[app.config["mongodb"]["collectionname"]].find(
