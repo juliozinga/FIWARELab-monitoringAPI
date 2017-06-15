@@ -186,10 +186,13 @@ Return region data(country,lat and lng) of a region taht use new monitoring syst
 
 
 def get_region_data(regionid):
-    region_data = app.config["main_config"]["regionData"][regionid]
-    if not region_data:
+    if regionid in app.config["main_config"]["regionData"]:
+        region_data = app.config["main_config"]["regionData"][regionid]
+        if not region_data:
+            return []
+        return json.loads(region_data)
+    else:
         return None
-    return json.loads(region_data)
 
 
 '''
@@ -271,7 +274,16 @@ def get_region(mongodb, regionid="ID of the region"):
         if region is None:
             abort(404)
         elif region == 404:
-            abort(404,{'name':get_region_name(regionid), 'data':get_region_data(regionid)})
+            name = get_region_name(regionid)
+            data = get_region_data(regionid)
+            if data is None:
+                abort(404)
+            #print "{'name':"+name+", 'data':}"
+            #print data
+            #abort(404,{'name':name, 'data':data})
+            response.status = 404
+            response.content_type = 'application/json'
+            return json.dumps({'name':name, 'data':data, 'ttl':int(app.config["api"]["regionTTL"])})
         else:
             return region
     else:
