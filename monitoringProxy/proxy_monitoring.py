@@ -579,7 +579,7 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
     except TimeoutError:
         print("HTTP call to JS monitoringAPI to retrieve IDM info did not respond in 10 seconds. No IDM data returned")
     finally:
-        pool.close()
+        pool.terminate()
         pool.join()
     return regions_entity
 
@@ -900,7 +900,7 @@ def get_all_region_hostnames(regionid, active = True):
         except TimeoutError:
             print("HTTP call to monasca API to retrieve region metrics did not respond in 5 seconds. No metrics data returned")
         
-    pool.close()
+    pool.terminate()
     pool.join()
     
     if(active):        
@@ -919,7 +919,7 @@ def get_all_region_hostnames(regionid, active = True):
                 
                 except TimeoutError:
                     print("HTTP call to monasca API to check if hostname was active (checking its measures) did not respond in 10 seconds. No measurements data returned")
-            pool.close()
+            pool.terminate()
             pool.join()
         #for hostname in hostnames:
             #if is_region_hostname_active(regionid,hostname):
@@ -939,14 +939,14 @@ def get_all_region_hostnames(regionid, active = True):
             #result = res.get(timeout=5)
             #if result and len(result) > 0 and result[0].has_key("measurements"):                
                 #if len(result[0]["measurements"]) > 0:
-                    #pool.close()
+                    #pool.terminate()
                     #pool.join()
                     ##metric_not_empty_count += 1
                     #return True
                 
         #except TimeoutError:
             #print("HTTP call to monasca API to retrieve measurements for hostname did not respond in 5 seconds. No measurements data returned")
-    #pool.close()
+    #pool.terminate()
     #pool.join()
     ##if metric_not_empty_count == len(metricsNames):
         ##return True
@@ -1010,7 +1010,7 @@ def get_host_measurements_from_monasca(regionid,hostname,parallel = True):
                 
             except TimeoutError:
                 print("HTTP call to monasca API to retrieve measurements for hostname did not respond in 5 seconds. No measurements data returned")
-        pool.close()
+        pool.terminate()
         pool.join()
         return measurements
 
@@ -1096,9 +1096,9 @@ def get_host_from_monasca(regionid,hostname):
         if metadata_result:
             region_metadata = get_last_monasca_measurement(metadata_result)
     except TimeoutError:
-        print("HTTP call to monasca API to retrieve metadata measurements for region did not respond in 5 seconds. No measurements metadata returned")
+        print("HTTP call to monasca API to retrieve metadata measurements for region did not respond in 10 seconds. No measurements metadata returned")
     finally:
-        pool.close()
+        pool.terminate()
         pool.join()
         
     ram_ratio = False
@@ -1236,13 +1236,16 @@ def get_region_from_monasca(regionid):
             region_metadata["measurements"] = get_last_monasca_measurement(metadata_result)
     except TimeoutError:
         print("HTTP call to monasca API to retrieve metadata measurements for region did not respond in 5 seconds. No measurements metadata returned")
-        pool.close()
+        pool.terminate()
         pool.join()
         return None        
       
     #print region_metadata
     
-    if region_metadata is None or region_metadata["measurements"] is None: return 404
+    if region_metadata is None or region_metadata["measurements"] is None: 
+        pool.terminate()
+        pool.join()
+        return 404
 
     if regionid is not None and region_metadata["id"] == regionid and len(region_metadata["measurements"])>2:
 
@@ -1272,7 +1275,7 @@ def get_region_from_monasca(regionid):
         except TimeoutError:
             print("HTTP call to monasca API to retrieve used ip measurements for region did not respond in 5 seconds. No measurements ip returned")
         finally:
-            pool.close()
+            pool.terminate()
             pool.join()
 
         if used_ip:
@@ -1464,7 +1467,7 @@ def aggr_monasca_hosts_data(hosts, regionid=None):
     # Workaround to adjust storage amount if Ceph is used
     cephStorageRegions = json.loads(app.config["api"]["regionsCephStorage"])
     if regionid in cephStorageRegions:
-        hosts_data["diskTot"] = hosts_data["diskTot"] / hosts.count()
+        hosts_data["diskTot"] = hosts_data["diskTot"] / len(hosts)
     return hosts_data
 
 #end Monasca------------------------------------------------------------------------------
