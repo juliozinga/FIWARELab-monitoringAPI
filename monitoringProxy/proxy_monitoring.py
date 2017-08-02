@@ -71,7 +71,7 @@ def is_idm_authorized(request_headers, regionId):
         #token_string = request_headers.get(HEADER_AUTH)
     
     if request_headers.get("X-App-Id") is not None:
-        trusted_apps = json.loads(config_map['api']['trusted_app'])
+        trusted_apps = json.loads(app.config['api']['trusted_app'])
         if request_headers.get("X-App-Id") in trusted_apps:
             return True
     elif request_headers.get("X-Organizations") is not None:
