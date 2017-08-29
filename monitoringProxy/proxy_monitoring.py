@@ -80,7 +80,7 @@ def is_idm_authorized(request_headers, regionId):
                 return True
     
     if strtobool(app.config["api"]["debugMode"]):
-        print "no X-App-Id or X-Organizations headers found"
+        print "["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] no X-App-Id or X-Organizations headers found"
     return False
 
 # Get token from IDM
@@ -221,7 +221,8 @@ return empty array if error
 def fwd_request(request_url, request, regionid=None):
     my_response = do_http_get(request_url, request, regionid)
     response.status = my_response.getcode()
-    response.set_header("Content-Type", my_response.info().getheader("Content-Type"))
+    if hasattr(my_response, 'headers')
+        response.set_header("Content-Type", my_response.info().getheader("Content-Type"))
     return my_response
 
 
@@ -247,6 +248,16 @@ def do_http_get(request_url, request, regionid=None):
         my_response = urllib2.urlopen(req)
     except urllib2.HTTPError, error:
         my_response = error
+    except urllib2.URLError, error:
+        if strtobool(app.config["api"]["debugMode"]):
+            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] do_http_get exception")
+            print(traceback.format_exc())
+        my_response = urllib2.HTTPError(uri, 503, "The server is currently unable to handle the request due to a temporary overloading or maintenance of the server", {'Content-Type' : 'application/json'}, None)
+    except Exception as e:
+        if strtobool(app.config["api"]["debugMode"]):
+            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] do_http_get exception")
+            print(traceback.format_exc())
+        my_response = urllib2.HTTPError(uri, 503, "The server is currently unable to handle the request due to a temporary overloading or maintenance of the server", {'Content-Type' : 'application/json'}, None)
     return my_response
 
 
@@ -524,8 +535,20 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
         "total_ip": 0
     }
 
-    pool = Pool(processes=1,maxtasksperchild=25)
-    async_result = pool.apply_async(get_all_regions_from_js, ()) # Start thread for async http call
+    pool = None
+    async_result= None
+    
+    try:
+        pool = Pool(processes=1, maxtasksperchild=25)
+        async_result = pool.apply_async(get_all_regions_from_js, ()) # Start thread for async http call
+    except Exception as e:
+        if strtobool(app.config["api"]["debugMode"]):
+            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_all_regions_from_js exception in creating fork: {}").format(e)
+        if pool:
+            pool.terminate()
+            pool.join()
+            pool = None
+        async_result= None
 
     new_regions = app.config["main_config"]["regionNew"]
     region_list = {}
@@ -567,8 +590,29 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
             regions_entity["total_ip"] += int(decimal.Decimal(region["measures"][0]["ipTot"]).normalize())
 
     # get IDM infos from oldMonitoring
-    try:
-        regions_tmp = async_result.get(timeout=int(app.config["monasca"]["timeout"]))  # get the return value from thread
+    regions_tmp = None
+    if async_result == None:
+        try:
+            my_response = do_http_get("/monitoring/regions", request=None)
+            if my_response.getcode() == 200:
+                regions_tmp = json.loads(my_response.read())
+        except Exception as e:
+            if strtobool(app.config["api"]["debugMode"]):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] do_http_get('/monitoring/regions', request=None) exception: {}").format(e)
+    else:
+        try:
+            regions_tmp = async_result.get(timeout=int(app.config["monasca"]["timeout"]))  # get the return value from thread
+        except TimeoutError:
+            if strtobool(app.config["api"]["debugMode"]):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] HTTP call to JS monitoringAPI to retrieve IDM info did not respond in "+app.config["monasca"]["timeout"]+" seconds. No IDM data returned")
+        except Exception as e:
+            if strtobool(app.config["api"]["debugMode"]):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_all_regions_from_js exception: {}").format(e)
+        finally:
+            pool.terminate()
+            pool.join()
+    
+    if regions_tmp != None:
         regions_entity["basicUsers"] = regions_tmp["basicUsers"]
         regions_entity["trialUsers"] = regions_tmp["trialUsers"]
         regions_entity["communityUsers"] = regions_tmp["communityUsers"]
@@ -577,15 +621,7 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
         regions_entity["totalCloudOrganizations"] = regions_tmp["totalCloudOrganizations"]
         regions_entity["totalUserOrganizations"] = regions_tmp["totalUserOrganizations"]
         regions_entity["total_nb_organizations"] = regions_tmp["total_nb_organizations"]
-    except TimeoutError:
-        if strtobool(app.config["api"]["debugMode"]):
-            print("HTTP call to JS monitoringAPI to retrieve IDM info did not respond in "+app.config["monasca"]["timeout"]+" seconds. No IDM data returned")
-    except Exception as e:
-        if strtobool(app.config["api"]["debugMode"]):
-            print("get_all_regions_from_js exception: {}").format(e)
-    finally:
-        pool.terminate()
-        pool.join()
+    
     return regions_entity
 
 
@@ -896,44 +932,78 @@ def get_measurements_for_hostname(regionid,metricName,hostname):
 def get_all_region_hostnames(regionid, active = True):
     metricsNames = json.loads(app.config["metrics"]["computeMetrics"])
     hostnames = set()
-    pool = Pool(processes=len(metricsNames),maxtasksperchild=25)
+    pool = None
+    try:
+        pool = Pool(processes=len(metricsNames),maxtasksperchild=25)
     
-    async_results = [pool.apply_async(get_resources_for_metric, (regionid,metricName)) for metricName in metricsNames]
-    for res in async_results:
-        try:
-            hostnames = hostnames.union(res.get(timeout=int(app.config["monasca"]["timeout"])))
-        except TimeoutError:
-            if strtobool(app.config["api"]["debugMode"]):
-                print("HTTP call to monasca API to retrieve '"+regionid+"' region metrics did not respond in "+app.config["monasca"]["timeout"]+" seconds. No metrics data returned")
-        except Exception as e:
-            if strtobool(app.config["api"]["debugMode"]):
-                print("get_resources_for_metric exception (for '"+regionid+"'): {}").format(e)
+        async_results = [pool.apply_async(get_resources_for_metric, (regionid,metricName)) for metricName in metricsNames]
+        for res in async_results:
+            try:
+                hostnames = hostnames.union(res.get(timeout=int(app.config["monasca"]["timeout"])))
+            except TimeoutError:
+                if strtobool(app.config["api"]["debugMode"]):
+                    print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] HTTP call to monasca API to retrieve '"+regionid+"' region metrics did not respond in "+app.config["monasca"]["timeout"]+" seconds. No metrics data returned")
+            except Exception as e:
+                if strtobool(app.config["api"]["debugMode"]):
+                    print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_resources_for_metric exception (for '"+regionid+"'): {}").format(e)
         
-    pool.terminate()
-    pool.join()
+        pool.terminate()
+        pool.join()
+    except Exception as e:
+        if strtobool(app.config["api"]["debugMode"]):
+            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_all_region_hostnames exception (for '"+regionid+"') in opening forks: {}").format(e)
+        for metricName in metricsNames:
+            try:
+                result = get_resources_for_metric(regionid,metricName)
+                hostnames = hostnames.union(result)
+            except Exception as e:
+                if strtobool(app.config["api"]["debugMode"]):
+                    print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_resources_for_metric exception (for '"+regionid+"' and metric: '"+metricName+"')")
+                    print(traceback.format_exc())
+        if pool:
+            pool.terminate()
+            pool.join()
     
+    pool = None
     if(active):        
         hostnames_active = []
         
         if(len(hostnames) >0):
-            pool = Pool(processes=len(hostnames),maxtasksperchild=25)
+            
+            try:
+                pool = Pool(processes=len(hostnames),maxtasksperchild=25)
         
-            async_results = [pool.apply_async(is_region_hostname_active, (regionid,hostname)) for hostname in hostnames]
+                async_results = [pool.apply_async(is_region_hostname_active, (regionid,hostname)) for hostname in hostnames]
         
-            for res in async_results:
-                try:
-                    result = res.get(timeout=int(app.config["monasca"]["timeout"]))
-                    if result and len(result) > 0:          
-                        hostnames_active.append(result)
+                for res in async_results:
+                    try:
+                        result = res.get(timeout=int(app.config["monasca"]["timeout"]))
+                        if result and len(result) > 0:          
+                            hostnames_active.append(result)
                 
-                except TimeoutError:
-                    if strtobool(app.config["api"]["debugMode"]):
-                        print("HTTP call to monasca API to check if hostname of region '"+regionid+"' was active (checking its measures) did not respond in "+app.config["monasca"]["timeout"]+" seconds. No measurements data returned")
-                except Exception as e:
-                    if strtobool(app.config["api"]["debugMode"]):
-                        print("is_region_hostname_active exception (for '"+regionid+"'): {}").format(e)
-            pool.terminate()
-            pool.join()
+                    except TimeoutError:
+                        if strtobool(app.config["api"]["debugMode"]):
+                            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] HTTP call to monasca API to check if hostname of region '"+regionid+"' was active (checking its measures) did not respond in "+app.config["monasca"]["timeout"]+" seconds. No measurements data returned")
+                    except Exception as e:
+                        if strtobool(app.config["api"]["debugMode"]):
+                            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] is_region_hostname_active exception (for '"+regionid+"'): {}").format(e)
+                pool.terminate()
+                pool.join()
+            except Exception as e:
+                if strtobool(app.config["api"]["debugMode"]):
+                    print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_all_region_hostnames exception (for '"+regionid+"') in opening forks: {}").format(e)
+                for hostname in hostnames:
+                    try:
+                        result = is_region_hostname_active(regionid,hostname)
+                        if result and len(result) > 0:          
+                            hostnames_active.append(result)
+                    except Exception as e:
+                        if strtobool(app.config["api"]["debugMode"]):
+                            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] is_region_hostname_active exception (for '"+regionid+"' and hostname: '"+hostname+"')")
+                            print(traceback.format_exc())
+                if pool:
+                    pool.terminate()
+                    pool.join()
         #for hostname in hostnames:
             #if is_region_hostname_active(regionid,hostname):
                 #hostnames_active.append(hostname)
@@ -977,7 +1047,7 @@ def is_region_hostname_active(regionid,hostname):
                     return hostname               
         except Exception:
             if strtobool(app.config["api"]["debugMode"]):
-                print("HTTP call to monasca API to retrieve measurements for hostname (in order to check if it is active) gave error. No measurements data returned")
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] HTTP call to monasca API to retrieve measurements for hostname (in order to check if it is active) gave error. No measurements data returned")
                 print(traceback.format_exc())
     return False
 
@@ -1000,37 +1070,46 @@ def get_host_measurements_from_monasca(regionid,hostname,parallel = True):
     metricsNames = json.loads(app.config["metrics"]["computeMetrics"])
     
     if(parallel):
-        pool = Pool(processes=len(metricsNames),maxtasksperchild=25)
-    
-        measurements = {}
-    
-        async_results = [pool.apply_async(get_measurements_for_hostname, (regionid,metricName,hostname)) for metricName in metricsNames]
+        pool = None
+        try:
 
-        for res in async_results:
-            try:
-                result = res.get(timeout=int(app.config["monasca"]["timeout"]))
-                if result and len(result) > 0 and result[0].has_key("name"):        
-                    last_measurement = get_last_monasca_measurement(result)
-                    if last_measurement and len(last_measurement) > 1:
-                        measurements_data = {}                    
-                        measurements_data["value"] = last_measurement[1]
-                        #timestamp is a Datetime
-                        measurements_data["timestamp"] =  histo_utils.from_monasca_ts_to_datetime_ms(last_measurement[0])
-                        metric_name = result[0]["name"]
-                        measurements[metric_name] = measurements_data
-                        if (measurements.has_key("timestamp") and measurements["timestamp"] < measurements_data["timestamp"]) or not (measurements.has_key("timestamp")):
-                            measurements["timestamp"] = measurements_data["timestamp"]
-                        #print metric_name+" -- "+last_measurement[0]+" -- "+str(last_measurement[1])
+            pool = Pool(processes=len(metricsNames),maxtasksperchild=25)
+    
+            measurements = {}
+    
+            async_results = [pool.apply_async(get_measurements_for_hostname, (regionid,metricName,hostname)) for metricName in metricsNames]
+
+            for res in async_results:
+                try:
+                    result = res.get(timeout=int(app.config["monasca"]["timeout"]))
+                    if result and len(result) > 0 and result[0].has_key("name"):        
+                        last_measurement = get_last_monasca_measurement(result)
+                        if last_measurement and len(last_measurement) > 1:
+                            measurements_data = {}                    
+                            measurements_data["value"] = last_measurement[1]
+                            #timestamp is a Datetime
+                            measurements_data["timestamp"] =  histo_utils.from_monasca_ts_to_datetime_ms(last_measurement[0])
+                            metric_name = result[0]["name"]
+                            measurements[metric_name] = measurements_data
+                            if (measurements.has_key("timestamp") and measurements["timestamp"] < measurements_data["timestamp"]) or not (measurements.has_key("timestamp")):
+                                measurements["timestamp"] = measurements_data["timestamp"]
+                            #print metric_name+" -- "+last_measurement[0]+" -- "+str(last_measurement[1])
                 
-            except TimeoutError:
-                if strtobool(app.config["api"]["debugMode"]):
-                    print("HTTP call to monasca API to retrieve measurements for hostname '"+hostname+"' of region '"+regionid+"' did not respond in "+app.config["monasca"]["timeout"]+" seconds. No measurements data returned")
-            except Exception as e:
-                if strtobool(app.config["api"]["debugMode"]):
-                    print("get_measurements_for_hostname exception (for hostname '"+hostname+"' of region '"+regionid+"'): {}").format(e)
-        pool.terminate()
-        pool.join()
-        return measurements
+                except TimeoutError:
+                    if strtobool(app.config["api"]["debugMode"]):
+                        print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] HTTP call to monasca API to retrieve measurements for hostname '"+hostname+"' of region '"+regionid+"' did not respond in "+app.config["monasca"]["timeout"]+" seconds. No measurements data returned")
+                except Exception as e:
+                    if strtobool(app.config["api"]["debugMode"]):
+                        print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_measurements_for_hostname exception (for hostname '"+hostname+"' of region '"+regionid+"'): {}").format(e)
+            pool.terminate()
+            pool.join()
+            return measurements
+        except Exception as e:
+            if strtobool(app.config["api"]["debugMode"]):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_host_measurements_from_monasca exception (for hostname '"+hostname+"' of region '"+regionid+"') in creating fork: {}").format(e)
+            if pool:
+                pool.terminate()
+                pool.join()
 
     measurements = {}
     for metricName in metricsNames:
@@ -1050,17 +1129,13 @@ def get_host_measurements_from_monasca(regionid,hostname,parallel = True):
                         measurements["timestamp"] = measurements_data["timestamp"]
         except Exception:
             if strtobool(app.config["api"]["debugMode"]):
-                print("HTTP call to monasca API to retrieve measurements for hostname gave error. No measurements data returned")
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] HTTP call to monasca API to retrieve measurements for hostname gave error. No measurements data returned")
                 print(traceback.format_exc())
     
     return measurements
 
 #get host entity for a given region and hostId 
 def get_host_from_monasca(regionid,hostname):
-    host = get_host_measurements_from_monasca(regionid,hostname)    
-    pool = Pool(processes=1,maxtasksperchild=25)
-    async_result = pool.apply_async(get_metadata_for_region, (regionid,))
-
     host_entity = {
         "_links": {
             "self": {
@@ -1109,20 +1184,39 @@ def get_host_from_monasca(regionid,hostname):
         ]
     }
 
+    host = get_host_measurements_from_monasca(regionid,hostname) 
     region_metadata = None
+    async_result = None
+    pool = None
+    
     try:
-        metadata_result = async_result.get(timeout=int(app.config["monasca"]["timeout"]))  # get the return value from thread
-        if metadata_result:
-            region_metadata = get_last_monasca_measurement(metadata_result)
-    except TimeoutError:
-        if strtobool(app.config["api"]["debugMode"]):
-            print("HTTP call to monasca API to retrieve metadata measurements for region did not respond in "+app.config["monasca"]["timeout"]+" seconds. No measurements metadata returned")
+        pool = Pool(processes=1,maxtasksperchild=25)
+        async_result = pool.apply_async(get_metadata_for_region, (regionid,))
     except Exception as e:
         if strtobool(app.config["api"]["debugMode"]):
-            print("get_metadata_for_region exception (for region '"+regionid+"'): {}").format(e)
-    finally:
-        pool.terminate()
-        pool.join()
+            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_host_from_monasca exception (for region '"+regionid+"' and host '"+hostname+"') in creating fork: {}").format(e)
+        try:
+            region_metadata = get_metadata_for_region(regionid)
+        except Exception as e:
+            if strtobool(app.config["api"]["debugMode"]):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_host_from_monasca exception (for region '"+regionid+"' and host '"+hostname+"') method error get_metadata_for_region")
+                print(traceback.format_exc())
+
+    if async_result and pool:
+        try:
+            metadata_result = async_result.get(timeout=int(app.config["monasca"]["timeout"]))  # get the return value from thread
+            if metadata_result:
+                region_metadata = get_last_monasca_measurement(metadata_result)
+        except TimeoutError:
+            if strtobool(app.config["api"]["debugMode"]):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] HTTP call to monasca API to retrieve metadata measurements for region did not respond in "+app.config["monasca"]["timeout"]+" seconds. No measurements metadata returned")
+        except Exception as e:
+            if strtobool(app.config["api"]["debugMode"]):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_metadata_for_region exception (for region '"+regionid+"')")
+                print(traceback.format_exc())
+        finally:
+            pool.terminate()
+            pool.join()
         
     ram_ratio = False
     if region_metadata and len(region_metadata) > 2:
@@ -1166,34 +1260,82 @@ def get_host_from_monasca(regionid,hostname):
 #get region entity for a given regionId
 def get_region_from_monasca(regionid):
     if strtobool(app.config["api"]["debugMode"]):
-        print "Getting hosts of "+regionid+" ..."
-    pool = Pool(processes=3,maxtasksperchild=25)
-    region_metadata_async_result = pool.apply_async(get_metadata_for_region, (regionid,))
-    region_available_ip_async_result = pool.apply_async(get_ip_available_for_region, (regionid,))
-    region_used_ip_async_result = pool.apply_async(get_ip_used_for_region, (regionid,))
+        print "["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] Getting hosts of "+regionid+" ..."
+        
+    metadata_result = None
+    available_ip_result = None
+    used_ip_result = None
+    region_metadata_async_result = None
+    region_available_ip_async_result = None
+    region_used_ip_async_result = None
+    pool = None
+    
+    try:
+        pool = Pool(processes=3,maxtasksperchild=25)
+        region_metadata_async_result = pool.apply_async(get_metadata_for_region, (regionid,))
+        region_available_ip_async_result = pool.apply_async(get_ip_available_for_region, (regionid,))
+        region_used_ip_async_result = pool.apply_async(get_ip_used_for_region, (regionid,))
+    except Exception as e:
+        if strtobool(app.config["api"]["debugMode"]):
+            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_from_monasca exception (for region '"+regionid+"') in creating fork: {}").format(e)
+        if pool:
+            pool.terminate()
+            pool.join()
+        try:
+            metadata_result = get_metadata_for_region(regionid)
+        except Exception as e:
+            if strtobool(app.config["api"]["debugMode"]):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_metadata_for_region exception (for region '"+regionid+"')")
+                print(traceback.format_exc())
+        try:
+            available_ip_result = get_ip_available_for_region(regionid)
+        except Exception as e:
+            if strtobool(app.config["api"]["debugMode"]):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_ip_available_for_region exception (for region '"+regionid+"')")
+                print(traceback.format_exc())
+        try:
+            used_ip_result = get_ip_used_for_region(regionid)
+        except Exception as e:
+            if strtobool(app.config["api"]["debugMode"]):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_ip_used_for_region exception (for region '"+regionid+"')")
+                print(traceback.format_exc())
     
     hostnames = get_all_region_hostnames(regionid)
     hosts = []
     
     if len(hostnames) > 0:
-        pool_for_hosts = Pool(processes=len(hostnames),maxtasksperchild=25)
+        try:
+            pool_for_hosts = Pool(processes=len(hostnames),maxtasksperchild=25)
     
-        async_results = [pool_for_hosts.apply_async(get_host_measurements_from_monasca, (regionid,hostname,False)) for hostname in hostnames]
+            async_results = [pool_for_hosts.apply_async(get_host_measurements_from_monasca, (regionid,hostname,False)) for hostname in hostnames]
 
-        for res in async_results:
-            try:
-                result = res.get(timeout=int(app.config["monasca"]["timeout"]))
-                if result and len(result) > 0:     
-                    #print res
-                    hosts.append(result) 
-            except TimeoutError:
-                if strtobool(app.config["api"]["debugMode"]):
-                    print("HTTP call to monasca API to retrieve details for hostname of region '"+regionid+"' did not respond in "+app.config["monasca"]["timeout"]+" seconds. No measurements data returned")
-            except Exception as e:
-                if strtobool(app.config["api"]["debugMode"]):
-                    print("get_host_measurements_from_monasca exception (for region '"+regionid+"'): {}").format(e)
-        pool_for_hosts.terminate()
-        pool_for_hosts.join()
+            for res in async_results:
+                try:
+                    result = res.get(timeout=int(app.config["monasca"]["timeout"]))
+                    if result and len(result) > 0:     
+                        #print res
+                        hosts.append(result) 
+                except TimeoutError:
+                    if strtobool(app.config["api"]["debugMode"]):
+                        print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] HTTP call to monasca API to retrieve details for hostname of region '"+regionid+"' did not respond in "+app.config["monasca"]["timeout"]+" seconds. No measurements data returned")
+                except Exception as e:
+                    if strtobool(app.config["api"]["debugMode"]):
+                        print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_host_measurements_from_monasca exception (for region '"+regionid+"'): {}").format(e)
+            pool_for_hosts.terminate()
+            pool_for_hosts.join()
+        except Exception as e:
+            if strtobool(app.config["api"]["debugMode"]):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_from_monasca pool_for_hosts exception (for region '"+regionid+"') in creating fork: {}").format(e)
+            for hostname in hostnames:
+                try:
+                    result = get_host_measurements_from_monasca(regionid,hostname)
+                    if result and len(result) > 0:     
+                        #print res
+                        hosts.append(result) 
+                except Exception as e:
+                    if strtobool(app.config["api"]["debugMode"]):
+                        print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_from_monasca get_host_measurements_from_monasca exception (for region '"+regionid+"' and host '"+hostname+"')")
+                        print(traceback.format_exc())
     
     #for hostname in hostnames:
         ##if is_region_hostname_active(regionid,hostname):
@@ -1253,11 +1395,12 @@ def get_region_from_monasca(regionid):
         "power_consumption": ""
     }
     if strtobool(app.config["api"]["debugMode"]):
-        print "Getting metadata of "+regionid+" ..."
+        print "["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] Getting metadata of "+regionid+" ..."
     # get from monasca the entity region
     region_metadata = None
     try:
-        metadata_result = region_metadata_async_result.get(timeout=int(app.config["monasca"]["timeout"]))  # get the return value from thread
+        if metadata_result == None and region_metadata_async_result != None:
+            metadata_result = region_metadata_async_result.get(timeout=int(app.config["monasca"]["timeout"]))  # get the return value from thread
         if metadata_result and len(metadata_result) > 0 and metadata_result[0].has_key("id") and metadata_result[0].has_key("dimensions") and metadata_result[0]["dimensions"].has_key("region"):
             region_metadata = {}
             region_metadata["timestamp"] = metadata_result[0]["id"]
@@ -1265,22 +1408,25 @@ def get_region_from_monasca(regionid):
             region_metadata["measurements"] = get_last_monasca_measurement(metadata_result)
     except TimeoutError:
         if strtobool(app.config["api"]["debugMode"]):
-            print("HTTP call to monasca API to retrieve metadata measurements for region did not respond in "+app.config["monasca"]["timeout"]+" seconds. No measurements metadata returned")
-        pool.terminate()
-        pool.join()
+            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] HTTP call to monasca API to retrieve metadata measurements for region did not respond in "+app.config["monasca"]["timeout"]+" seconds. No measurements metadata returned")
+        if pool:
+            pool.terminate()
+            pool.join()
         return None 
     except Exception as e:
         if strtobool(app.config["api"]["debugMode"]):
-            print("get_metadata_for_region exception (for region '"+regionid+"'): {}").format(e)
-        pool.terminate()
-        pool.join()
+            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_metadata_for_region exception (for region '"+regionid+"'): {}").format(e)
+        if pool:
+            pool.terminate()
+            pool.join()
         return None
       
     #print region_metadata
     
     if region_metadata is None or region_metadata["measurements"] is None: 
-        pool.terminate()
-        pool.join()
+        if pool:
+            pool.terminate()
+            pool.join()
         return 404
 
     if regionid is not None and region_metadata["id"] == regionid and len(region_metadata["measurements"])>2:
@@ -1292,35 +1438,38 @@ def get_region_from_monasca(regionid):
         available_ip = None
         
         try:
-            available_ip_result = region_available_ip_async_result.get(timeout=int(app.config["monasca"]["timeout"]))  # get the return value from thread
+            if available_ip_result == None and region_available_ip_async_result != None:
+                available_ip_result = region_available_ip_async_result.get(timeout=int(app.config["monasca"]["timeout"]))  # get the return value from thread
             if available_ip_result:
                 last_available_ip = get_last_monasca_measurement(available_ip_result)
                 if last_available_ip and len(last_available_ip) > 1:
                     available_ip = last_available_ip[1]
         except TimeoutError:
             if strtobool(app.config["api"]["debugMode"]):
-                print("HTTP call to monasca API to retrieve available ip measurements for region did not respond in "+app.config["monasca"]["timeout"]+" seconds. No measurements ip returned")
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] HTTP call to monasca API to retrieve available ip measurements for region did not respond in "+app.config["monasca"]["timeout"]+" seconds. No measurements ip returned")
         except Exception as e:
             if strtobool(app.config["api"]["debugMode"]):
-                print("get_ip_available_for_region exception (for region '"+regionid+"'): {}").format(e)
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_ip_available_for_region exception (for region '"+regionid+"'): {}").format(e)
         
         used_ip = None
         
         try:
-            used_ip_result = region_used_ip_async_result.get(timeout=int(app.config["monasca"]["timeout"]))  # get the return value from thread
+            if used_ip_result == None and region_used_ip_async_result != None:
+                used_ip_result = region_used_ip_async_result.get(timeout=int(app.config["monasca"]["timeout"]))  # get the return value from thread
             if used_ip_result:
                 last_used_ip = get_last_monasca_measurement(used_ip_result)
                 if last_used_ip and len(last_used_ip) > 1:
                     used_ip = last_used_ip[1]
         except TimeoutError:
             if strtobool(app.config["api"]["debugMode"]):
-                print("HTTP call to monasca API to retrieve used ip measurements for region did not respond in "+app.config["monasca"]["timeout"]+" seconds. No measurements ip returned")
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] HTTP call to monasca API to retrieve used ip measurements for region did not respond in "+app.config["monasca"]["timeout"]+" seconds. No measurements ip returned")
         except Exception as e:
             if strtobool(app.config["api"]["debugMode"]):
-                print("get_ip_used_for_region exception (for region '"+regionid+"'): {}").format(e)
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_ip_used_for_region exception (for region '"+regionid+"'): {}").format(e)
         finally:
-            pool.terminate()
-            pool.join()
+            if pool:
+                pool.terminate()
+                pool.join()
 
         if used_ip:
             region_entity["measures"][0]["ipAssigned"] = used_ip
@@ -1391,8 +1540,9 @@ def get_region_from_monasca(regionid):
         if region_metadata["measurements"][2].has_key('glance_version'):
             region_entity["components"][0]["glance_version"] = region_metadata["measurements"][2]["glance_version"]
     else:
-        pool.terminate()
-        pool.join()
+        if pool:
+            pool.terminate()
+            pool.join()
         return None
     return region_entity
 
@@ -1662,7 +1812,7 @@ def main():
     try:        
         collector = CollectorMonasca(user, password, monasca_endpoint, keystone_endpoint)
     except Exception as e:
-        print("Problem creating Monasca Collector: {}").format(e)
+        print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] Problem creating Monasca Collector: {}").format(e)
         sys.exit(-1)
 
     # App runs in infinite loop
