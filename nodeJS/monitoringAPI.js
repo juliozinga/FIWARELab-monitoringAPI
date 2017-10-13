@@ -179,7 +179,9 @@ function main(config_file) {
         };
         IDMurl = cfgObj.IDMurl
         mongoPath = 'mongodb://' + cfgObj.mongoIP + ':' + cfgObj.mongoPort + '/' + cfgObj.mongoDBname;
-        mongoose.connect(mongoPath);
+	mongoose.connect(mongoPath, function(err) {
+	    if (err) console.log(new Date().toString() + " | ERR | mongodb cannot be reached");
+	});
         var server = http.createServer(function(req, res) {
           manageRequest(req, res);
         });
