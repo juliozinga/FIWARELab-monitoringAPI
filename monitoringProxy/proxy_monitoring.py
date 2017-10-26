@@ -831,29 +831,37 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
         else:
             continue
 
-    for region in region_list.iteritems():
-        region = region[1]
-        region_item = {"id": {}, "_links": {"self": {"href": {}}}}
-        region_item["id"] = region["id"]
-        region_item["_links"]["self"]["href"] = "/monitoring/regions/" + region["id"]
-        regions_entity["_embedded"]["regions"].append(copy.deepcopy(region_item))
-        # sum resources form each region entity
-        if region["nb_cores"] != '':
-            regions_entity["total_nb_cores"] += int(region["nb_cores"])
-            regions_entity["total_nb_cores_enabled"] += int(region["nb_cores"])
-        if region["nb_ram"] != '':
-            regions_entity["total_nb_ram"] += int(region["nb_ram"])
-        if region["nb_disk"] != '':
-            regions_entity["total_nb_disk"] += int(region["nb_disk"])
-        if region["nb_vm"] != '':
-            regions_entity["total_nb_vm"] += int(region["nb_vm"])
-        if region["measures"][0]["ipAssigned"] != '':
-            regions_entity["total_ip_assigned"] += int(decimal.Decimal(region["measures"][0]["ipAssigned"]).normalize())
-        if region["measures"][0]["ipAllocated"] != '':
-            regions_entity["total_ip_allocated"] += int(
-                decimal.Decimal(region["measures"][0]["ipAllocated"]).normalize())
-        if region["measures"][0]["ipTot"] != '':
-            regions_entity["total_ip"] += int(decimal.Decimal(region["measures"][0]["ipTot"]).normalize())
+    if region_list:
+        for region in region_list.iteritems():
+            region = region[1]
+            region_item = {"id": {}, "_links": {"self": {"href": {}}}}
+            region_item["id"] = region["id"]
+            region_item["_links"]["self"]["href"] = "/monitoring/regions/" + region["id"]
+            regions_entity["_embedded"]["regions"].append(copy.deepcopy(region_item))
+            # sum resources form each region entity
+            if region["nb_cores"] != '':
+                regions_entity["total_nb_cores"] += int(region["nb_cores"])
+                regions_entity["total_nb_cores_enabled"] += int(region["nb_cores"])
+            if region["nb_ram"] != '':
+                regions_entity["total_nb_ram"] += int(region["nb_ram"])
+            if region["nb_disk"] != '':
+                regions_entity["total_nb_disk"] += int(region["nb_disk"])
+            if region["nb_vm"] != '':
+                regions_entity["total_nb_vm"] += int(region["nb_vm"])
+            if region["measures"][0]["ipAssigned"] != '':
+                regions_entity["total_ip_assigned"] += int(decimal.Decimal(region["measures"][0]["ipAssigned"]).normalize())
+            if region["measures"][0]["ipAllocated"] != '':
+                regions_entity["total_ip_allocated"] += int(
+                    decimal.Decimal(region["measures"][0]["ipAllocated"]).normalize())
+            if region["measures"][0]["ipTot"] != '':
+                regions_entity["total_ip"] += int(decimal.Decimal(region["measures"][0]["ipTot"]).normalize())
+    else:
+        #regions ids are taken from config file because mongo probably is down
+        for region in app.config["main_config"]["regionNew"]:
+            region_item = {"id": {}, "_links": {"self": {"href": {}}}}
+            region_item["id"] = region
+            region_item["_links"]["self"]["href"] = "/monitoring/regions/" + region
+            regions_entity["_embedded"]["regions"].append(copy.deepcopy(region_item))
 
     # get IDM infos from oldMonitoring
     regions_tmp = None
