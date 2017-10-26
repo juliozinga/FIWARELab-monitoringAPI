@@ -2,6 +2,7 @@
 from __future__ import division
 from bottle import route, run, request, error, response, Bottle, redirect, HTTPError, abort, HTTPResponse
 from pymongo import MongoClient, database
+from pymongo.errors import ServerSelectionTimeoutError
 from bottle.ext.mongo import MongoPlugin
 from bson.json_util import dumps
 from paste import httpserver
@@ -802,10 +803,15 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
     region_list = {}
 
     for region_id, is_new in new_regions.iteritems():
-        if str2true(is_new):
-            region = get_region_from_mongo(mongodb, region_id)
-            if region is not None:
-                region_list[region_id] = region
+        if str2true(is_new):            
+            try:
+                region = get_region_from_mongo(mongodb, region_id)
+                if region is not None:
+                    region_list[region_id] = region
+            except ServerSelectionTimeoutError as e:
+                if strtobool(app.config["api"]["debugMode"]):
+                    print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_all_regions_from_mongo get_region_from_mongo ServerSelectionTimeoutError for"+region_id)
+                break            
         elif str2false(is_new):
             try:
                 my_response = do_http_get("/monitoring/regions/" + region_id, request=None, regionid=region_id)
@@ -994,6 +1000,11 @@ def get_region_from_mongo(mongodb, regionid):
     region = None
     try:
         region = mongodb[app.config["mongodb"]["collectionname"]].find_one({"$and": [{"_id.type": "region"}, {"_id.id": regionid}]})
+    except ServerSelectionTimeoutError as e:
+        if strtobool(app.config["api"]["debugMode"]):
+            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_from_mongo ServerSelectionTimeoutError for"+regionid)
+            print(traceback.format_exc())
+            raise e
     except Exception as e:
         if strtobool(app.config["api"]["debugMode"]):
             print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_from_mongo "+regionid)
