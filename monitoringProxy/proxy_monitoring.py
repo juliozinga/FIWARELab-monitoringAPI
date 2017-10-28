@@ -1728,7 +1728,7 @@ def get_region_from_monasca(regionid):
         if pool:
             pool.terminate()
             pool.join()
-        return None 
+        return 404 
     except Exception as e:
         if strtobool(app.config["api"]["debugMode"]):
             print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_metadata_for_region exception (for region '"+regionid+"')")
