@@ -1867,7 +1867,13 @@ def get_region_from_monasca(regionid):
 
 #get instances for a given region
 def get_vms_from_monasca(regionId):
-    vms = get_resources_for_metric(regionId,"instance")
+    vms = None
+    try:
+        vms = get_resources_for_metric(regionId,"instance")
+    except Exception as e:
+        if strtobool(app.config["api"]["debugMode"]):
+            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_vms_from_monasca-> get_resources_for_metric exception for region "+regionId)
+            print(traceback.format_exc())  
     return vms
 
 # end Monasca-------------------------------------------------------------------------------
@@ -2178,7 +2184,7 @@ def main():
     user = config_map["profile"]["user"]
     password = config_map["profile"]["password"]
     try:        
-        collector = CollectorMonasca(user, password, monasca_endpoint, keystone_endpoint)
+        collector = CollectorMonasca(user, password, monasca_endpoint, keystone_endpoint, config_map)
     except Exception as e:
         print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] Problem creating Monasca Collector")
         print(traceback.format_exc())
