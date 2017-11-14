@@ -8,7 +8,12 @@ import fcntl
 from distutils.util import strtobool
 import traceback
 import time
+import errno
+import sys
 
+#------------
+from random import randint
+#------------
 class Mutex:
     
     def __init__(self, filename):
@@ -20,18 +25,42 @@ class Mutex:
             return True
         return False
         
-    def createMutex(self):    
-        flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+    def createMutex(self):
+        #------------
+        #MICROSECOND_DIVIDER = 1000000.0
+        #SECONDS = randint(0, int(MICROSECOND_DIVIDER))
+        #time.sleep(SECONDS/MICROSECOND_DIVIDER)
+        #------------
+        #sys.stderr.write(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] createMutex entered")
+        #flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+        flags = os.O_CREAT | os.O_WRONLY
         try:
             file_handle = os.open(self.filename, flags)
-        except OSError:
-            #print(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] createMutex ERROR")
+            #sys.stderr.write(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] createMutex try ended")
+        except OSError as e:
+            #sys.stderr.write(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] createMutex ERROR")
+            if e.errno == errno.EEXIST:  # Failed as the file already exists.
+                #sys.stderr.write(e)
+            else:
+                sys.stderr.write(e)
+                #sys.stderr.write(traceback.format_exc())
+                self.removeMutex()
             return False
+        except Exception as exc:
+            #sys.stderr.write(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] createMutex strange exception")
+            sys.stderr.write(e)
+            #sys.stderr.write(traceback.format_exc())
+            self.removeMutex()
         else:  # No exception, so the file must have been created successfully.
-            with os.fdopen(file_handle, 'w') as file_obj:           
-                file_obj.write("")
-                #print(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] createMutex")
-            return True
+            #sys.stderr.write(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] createMutex")
+            try:
+                with os.fdopen(file_handle, 'w') as file_obj:
+                    file_obj.write("")
+                    #sys.stderr.write(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"]try createMutex")
+                return True
+            except Exception as ex:
+                #sys.stderr.write(ex)
+                return True
 
     def removeMutex(self):
         #print(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] removeMutex")
