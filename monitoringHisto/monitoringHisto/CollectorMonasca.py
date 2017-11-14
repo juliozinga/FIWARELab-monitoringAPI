@@ -41,6 +41,7 @@ class Mutex:
             #sys.stderr.write(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] createMutex ERROR")
             if e.errno == errno.EEXIST:  # Failed as the file already exists.
                 #sys.stderr.write(e)
+                pass
             else:
                 sys.stderr.write(e)
                 #sys.stderr.write(traceback.format_exc())
