@@ -32,8 +32,7 @@ class Mutex:
         #time.sleep(SECONDS/MICROSECOND_DIVIDER)
         #------------
         #sys.stderr.write(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] createMutex entered")
-        #flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
-        flags = os.O_CREAT | os.O_WRONLY
+        flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
         try:
             file_handle = os.open(self.filename, flags)
             #sys.stderr.write(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] createMutex try ended")
