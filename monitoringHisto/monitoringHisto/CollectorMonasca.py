@@ -24,7 +24,20 @@ class Mutex:
         if os.path.exists(self.filename):
             return True
         return False
-        
+    
+    def isObsolete(self):
+        sys.stderr.write(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] is obsolete?")
+        if self.mutexExists():
+            sys.stderr.write(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] is obsolete?Checking...")
+            mutexTime = datetime.datetime.fromtimestamp(os.path.getmtime(self.filename))
+            nowTime = datetime.datetime.now()
+            difference = int((nowTime - mutexTime).total_seconds())
+            if difference > 10:
+                sys.stderr.write(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] MUTEX IS OBSOLETE")
+                return True
+        sys.stderr.write(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] MUTEX IS NOT OBSOLETE")
+        return False
+    
     def createMutex(self):
         #------------
         #MICROSECOND_DIVIDER = 1000000.0
@@ -32,6 +45,9 @@ class Mutex:
         #time.sleep(SECONDS/MICROSECOND_DIVIDER)
         #------------
         #sys.stderr.write(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] createMutex entered")
+        if self.isObsolete():
+            self.removeMutex()
+        
         flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
         try:
             file_handle = os.open(self.filename, flags)
@@ -51,16 +67,21 @@ class Mutex:
             sys.stderr.write(e)
             #sys.stderr.write(traceback.format_exc())
             self.removeMutex()
+            return False
         else:  # No exception, so the file must have been created successfully.
             #sys.stderr.write(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] createMutex")
-            try:
-                with os.fdopen(file_handle, 'w') as file_obj:
-                    file_obj.write("")
-                    #sys.stderr.write(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"]try createMutex")
-                return True
-            except Exception as ex:
-                #sys.stderr.write(ex)
-                return True
+            with os.fdopen(file_handle, 'w') as file_obj:
+                file_obj.write("")
+                file_obj.flush()
+                file_obj.close()
+                #sys.stderr.write(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"]try createMutex!!!")
+            return True
+            #except Exception as ex:
+                ##sys.stderr.write(ex)
+                #if self.mutexExists():
+                    #return True
+                #else:
+                    #return False
 
     def removeMutex(self):
         #print(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] removeMutex")
@@ -172,8 +193,8 @@ class CollectorMonasca:
         
         #if we don't force the authentication (we force only first time)
         if not force:
-            #if there is mutex, some process is already writing                            
-            if not mutex.mutexExists():  
+            #if there is mutex, some process is already writing. But it could be dead                            
+            if not mutex.mutexExists() or mutex.isObsolete():  
                 #if the mutex has been created
                 if mutex.createMutex():
                     onlyReadMode = False
@@ -216,7 +237,7 @@ class CollectorMonasca:
                                 print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] The lock file is empty")
                     else:
                         if self.__config and strtobool(self.__config["api"]["debugMode"]):
-                                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] The token file doesn't exists and mutex was set")
+                            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] The token file doesn't exists and mutex was set")
                 else:
                     if self.__config and strtobool(self.__config["api"]["debugMode"]):
                         print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] the fork tried to create mutex, but it was already set")
