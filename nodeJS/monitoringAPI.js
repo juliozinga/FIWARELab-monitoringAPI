@@ -3468,7 +3468,7 @@ function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue, 
                   break;
                 }
               }
-              if (equal == "NO" && dataC.getDate() != now.getDate()) {
+              if (equal == "NO" && !(dataC.getFullYear() === now.getFullYear() && dataC.getDate() === now.getDate() && dataC.getMonth() === now.getMonth())) {
                 var yyyy = dataC.getFullYear().toString();
                 var mm = (dataC.getMonth() + 1).toString(); // getMonth() is zero-based
                 var dd = dataC.getDate().toString();
