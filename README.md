@@ -41,7 +41,7 @@ Moreover, a third module, not strictly related with the API service, has been ad
 
 The following picture depict the main architecture of the monitoringAPI system. It is possibile to see that the current architecture supports two different FIWARE federation monitoring: the first and the second enhanced version. This is needed to grant a lightweight and gradual migration process.
 
-![FIWARE monitoringAPI architecture] (https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/raw/master/docs/raw/monitoringAPI-architecture.png "FIWARE monitoringAPI architecture")
+[FIWARE monitoringAPI architecture] (https://github.com/SmartInfrastructures/FIWARELab-monitoringAPI/raw/master/docs/raw/monitoringAPI-architecture.png "FIWARE monitoringAPI architecture")
 
 The API service is protected by a [proxy](https://github.com/ging/fi-ware-pep-proxy) that evaluates the user's credentials through OAuth 2.0.
 
