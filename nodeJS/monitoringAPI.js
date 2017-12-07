@@ -179,7 +179,9 @@ function main(config_file) {
         };
         IDMurl = cfgObj.IDMurl
         mongoPath = 'mongodb://' + cfgObj.mongoIP + ':' + cfgObj.mongoPort + '/' + cfgObj.mongoDBname;
-        mongoose.connect(mongoPath);
+	mongoose.connect(mongoPath, function(err) {
+	    if (err) console.log(new Date().toString() + " | ERR | mongodb cannot be reached");
+	});
         var server = http.createServer(function(req, res) {
           manageRequest(req, res);
         });
@@ -3466,7 +3468,7 @@ function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue, 
                   break;
                 }
               }
-              if (equal == "NO" && dataC.getDate() != now.getDate()) {
+              if (equal == "NO" && !(dataC.getFullYear() === now.getFullYear() && dataC.getDate() === now.getDate() && dataC.getMonth() === now.getMonth())) {
                 var yyyy = dataC.getFullYear().toString();
                 var mm = (dataC.getMonth() + 1).toString(); // getMonth() is zero-based
                 var dd = dataC.getDate().toString();
