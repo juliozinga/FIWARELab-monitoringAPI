@@ -215,7 +215,10 @@ An updated and detailed documentation about the API available from this web-serv
 
 ## Development environment
 
-A development environment, based on Vagrant, can be used to simulate the source of data where monitoringAPI retrieve metrics and the Infographics GUI. It is available at this project page: [vagrant-FIWARELab-monitoringAPI](https://github.com/SmartInfrastructures/vagrant-FIWARELab-monitoringAPI).
+Two development environments based on Vagrant are present:
+    * The first can be used to simulate the source of data where monitoringAPI retrieve metrics and the Infographics GUI. It is available at this project page: [vagrant-FIWARELab-monitoringAPI](https://github.com/SmartInfrastructures/vagrant-FIWARELab-monitoringAPI).
+    * The second is more oriented to monitoringAPI development, it includes all the services described above a the fiware-pep-proxy. It is present in the `vagrant` folder.
+
 
 ## License
 

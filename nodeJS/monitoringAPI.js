@@ -179,7 +179,9 @@ function main(config_file) {
         };
         IDMurl = cfgObj.IDMurl
         mongoPath = 'mongodb://' + cfgObj.mongoIP + ':' + cfgObj.mongoPort + '/' + cfgObj.mongoDBname;
-        mongoose.connect(mongoPath);
+	mongoose.connect(mongoPath, function(err) {
+	    if (err) console.log(new Date().toString() + " | ERR | mongodb cannot be reached");
+	});
         var server = http.createServer(function(req, res) {
           manageRequest(req, res);
         });
@@ -458,7 +460,7 @@ function root(res, statusType, authToken) {
   res.writeHead(statusType, {
     'Content-Type': 'json'
   });
-  res.end('{"_links": {"self": { "href": "/" },"regions": { "href": "/monitoring/regions", "templated": true }"host2hosts": { "href": "/monitoring/host2hosts", "templated": true }}}');
+  res.end('{"_links": {"self": { "href": "/" },"regions": { "href": "/monitoring/regions", "templated": true },"host2hosts": { "href": "/monitoring/host2hosts", "templated": true }}}');
 }
 
 function errorFunction(res, errType, authToken) {
@@ -3466,7 +3468,7 @@ function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue, 
                   break;
                 }
               }
-              if (equal == "NO" && dataC.getDate() != now.getDate()) {
+              if (equal == "NO" && !(dataC.getFullYear() === now.getFullYear() && dataC.getDate() === now.getDate() && dataC.getMonth() === now.getMonth())) {
                 var yyyy = dataC.getFullYear().toString();
                 var mm = (dataC.getMonth() + 1).toString(); // getMonth() is zero-based
                 var dd = dataC.getDate().toString();

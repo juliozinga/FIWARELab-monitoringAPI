@@ -26,9 +26,36 @@
      #+END_EXAMPLE
    - =host_service= import
      #+BEGIN_EXAMPLE
-     mysql -u USER -p NEW_DB_NAME < Trento2_host_service_old_db.sql 
+     mysql -u USER -p NEW_DB_NAME < Trento2_host_service_old_db.sql
      #+END_EXAMPLE
 ** Selectively backup data before the UPDATE query
    #+BEGIN_EXAMPLE mysql
    mysqldump -t -u USER -p DB_NAME host_service --where="region='Trento2'" > Trento2_host_service_201605132039.sql
    #+END_EXAMPLE
+** Mass migrate a list of regions
+   Assume to have a file =region-list.txt= with the region list, one per line.
+   #+BEGIN_EXAMPLE
+   Berlin2
+   Gent
+   Karlskrona2
+   Lannion
+   Lannion2
+   PiraeusN
+   Prague
+   SophiaAntipolis
+   Stockholm2
+   Trento
+   Trento2
+   Waterford
+   Zurich
+   #+END_EXAMPLE
+
+   Run the following in a temporary folder to export all regions
+   #+BEGIN_SRC sh
+   for region in $(cat region-list.txt) ; do mysqldump -t -u USER -pDB_PWD OLD_DB_NAME host_service --where=region="'$region'" > ./"$region"_host_service_old_db.sql; done
+   #+END_SRC
+
+   Run the following in the same folder to import all regions
+   #+BEGIN_SRC sh
+   for region in $(cat region-list.txt) ; do mysql -u NEW_DB_NAME -pDB_PWD NEW_DB_NAME < ./"$region"_host_service_old_db.sql; done
+   #+END_SRC
