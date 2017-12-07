@@ -2144,7 +2144,7 @@ def main():
         sys.exit(-1)
 
     # Get a map with config declared in SECTION_TO_LOAD and insert it in bottle app
-    SECTION_TO_LOAD = ["mysql", "profile", "monasca", "keystone", "mongodb", "mongodbOld", "api", "key", "idm", "oldmonitoring", "newmonitoring", "usageData", "metrics", "projectpath"]
+    SECTION_TO_LOAD = ["mysql", "profile", "monasca", "influxdb" , "keystone", "mongodb", "mongodbOld", "api", "key", "idm", "oldmonitoring", "newmonitoring", "usageData", "metrics", "projectpath"]
     config_map = config_to_dict(section_list=SECTION_TO_LOAD, config=config, app=app)
 
     # Create and install plugin in bottle app
