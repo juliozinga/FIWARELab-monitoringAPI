@@ -460,6 +460,9 @@ class CollectorMonasca:
                 # Retrieve measurementes from monasca
                 measurements = self.get_process_measurements(process_name, process_hostname, service_name, regionid, start_timestamp, end_timestamp)
 
+                if [statistics is None ] or [measurements is None]:
+                    return None
+
                 # Remove statistics for which no measurements are present in monasca and store
                 m_days_set = self.from_dates_to_days_set(self.from_measurements_to_dates(measurements))
                 self.clean_statistics(statistics, m_days_set)
@@ -473,6 +476,9 @@ class CollectorMonasca:
 
         # Retrieve measurementes from monasca
         measurements = self.get_sanities_measurements(regionid, start_timestamp, end_timestamp)
+
+        if [statistics is None ] or [measurements is None]:
+            return None
 
         # Remove statistics for which no measurements are present in monasca
         m_days_set = self.from_dates_to_days_set(self.from_measurements_to_dates(measurements))

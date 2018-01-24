@@ -7,12 +7,16 @@ import model
 import argparse
 import os
 import utils
+import logging
 
 # Main function
 import sys
 
 
 def main():
+    logging.info('Starting logger for monitoringHisto') # or call logging.basicConfig()
+    LOG = logging.getLogger(__name__)
+
     # Loads and manages the input arguments
     args = arg_parser()
 
@@ -60,6 +64,11 @@ def main():
     except Exception as e:
         print("Problem parsing main config file: {}").format(e)
         sys.exit(-1)
+    # Set logger level, if any
+    l_level = config.get("logger","log_level")
+    if l_level:
+        LOG.setLevel(l_level)
+    LOG.debug("Prova")
 
     # Get excluded regions, if any
     excluded_regions = json.loads(config.get("regionexclude","regions"))
@@ -93,13 +102,16 @@ def main():
         # Retrieve sanity checks aggregation
         day_agg = model.Aggregation('d', 86400, 'avg')
         sanities_data = collector.get_sanities_avg(region,day_agg.period, start_timestamp, end_timestamp)
-        # Adapt and persist daily average of sanity checks aggregation into hourly base
-        sanities = []
-        for sanity_data in sanities_data:
-            sanity = model_adapter.from_monasca_sanity_to_sanity(sanity_data, day_agg)
-            sanities.append(sanity)
-        persister.persist_sanity(sanities)
-
+        if sanities_data is not None:
+            # Adapt and persist daily average of sanity checks aggregation into hourly base
+            sanities = []
+            for sanity_data in sanities_data:
+                sanity = model_adapter.from_monasca_sanity_to_sanity(sanity_data, day_agg)
+                sanities.append(sanity)
+            persister.persist_sanity(sanities)
+        else:
+            # No sanities data available on the specified range, rise a warning
+            LOG.warning("No sanities data available on the specified range for region: %s", region)
         # Retrieve processes aggregation
         hour_agg = model.Aggregation('h', 3600, 'avg')
         services_processes = collector.get_services_processes_avg(
@@ -108,6 +120,10 @@ def main():
         # Calculate and map processes aggregation
         processes = []
         for service in services_processes:
+            if services_processes[service] is None:
+                LOG.warning("No services process data available on the specified range for region: %s and service: %s",
+                            region, service)
+                continue
             for process_name in services_processes[service].keys():
                 process_values = services_processes[service][process_name]
                 process = model_adapter.from_monasca_process_to_process(process_values, hour_agg)

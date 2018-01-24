@@ -43,3 +43,4 @@ SQLAlchemy==1.0.12
 stevedore==1.13.0
 WebOb==1.6.0
 wrapt==1.10.8
+logging
