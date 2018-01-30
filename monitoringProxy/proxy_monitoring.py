@@ -1900,147 +1900,76 @@ def get_vms_from_monasca(regionId):
 
 #Influx-------------------------------------------------------------------------------
 
-def do_influx_http_get(query, request):
-    influx_url = app.config["influxdb"]["uri"]
-
-    #req = urllib2.Request(uri)
-    #token_map = get_token_from_response(request)
-    #if bool(token_map):
-        #req.headers[token_map.iteritems().next()[0]] = token_map.iteritems().next()[1]
-    #my_response = None
-    #try:
-        #my_response = urllib2.urlopen(req)
-    #except urllib2.HTTPError, error:
-        #if strtobool(app.config["api"]["debugMode"]):
-            #print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] do_influx_http_get httperror")
-            #print(traceback.format_exc())
-        ##print("In do_http_get except urllib2.HTTPError, error")
-        ##my_response = error
-        #raise error
-    #except urllib2.URLError, error:
-        #if strtobool(app.config["api"]["debugMode"]):
-            #print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] do_influx_http_get urlerror")
-            #print(traceback.format_exc())
-        ##my_response = error
-        #raise error
-        
-    #except Exception as e:
-        #if strtobool(app.config["api"]["debugMode"]):
-            #print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] do_influx_http_get exception")
-            #print(traceback.format_exc())
-        #raise e
-        
-    #return my_response
-    
-    #query = "SELECT last(value_meta) FROM instance WHERE value_meta =~ /active/ AND time>=1507528800000000000 AND time<=1507647600000000000 AND region='Spain2' GROUP BY resource_id"
-    results = requests.get(influx_url+"/query", 
-              params={'q': query, 'db': "mon", 'pretty': "true"})
-    
-    print(results.status_code)
-    #print(results.json())
-    return results
-
-def influx_get_all_region_vms(regionid, active=True):     
-    
-    try:
-        #response = do_influx_http_get("/query?pretty=true&db=mon&q=select last(count) from region_vms where time >= 1508924340000000000", request=request, regionid=regionid)
-        #quoted_region = urllib.quote("'"+regionid+"'")
-        response = do_influx_http_get("SELECT last(value_meta) FROM instance WHERE value_meta =~ /active/ AND time>=1507528800000000000 AND time<=1507647600000000000 AND region='"+regionid+"' GROUP BY resource_id", request=request)
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] influx_get_all_region_vms: status code "+str(response.status_code))
-            raise Exception('Call to Influx did not return 200 code')
-            
-    except urllib2.HTTPError, error:
-        if strtobool(app.config["api"]["debugMode"]):
-            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] influx_get_all_region_vms do_influx_http_get httperror")
-        return None
-        
-    except urllib2.URLError, error:
-        if strtobool(app.config["api"]["debugMode"]):
-            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] influx_get_all_region_vms do_influx_http_get urlerror")
-        return None
-        
-    except Exception as e:
-        if strtobool(app.config["api"]["debugMode"]):
-            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] influx_get_all_region_vms do_influx_http_get exception")
-            print(traceback.format_exc())  
-        return None
-    
-def influx_get_region_vm(regionid, vmid):     
-    
-    try:
-        #response = do_influx_http_get("SELECT last(value_meta) FROM instance WHERE time>=1507528800000000000 AND time<=1507647600000000000 AND region='"+regionid+"' AND resource_id='"+vmid+"'", request=request)
-        
-        response = do_influx_http_get("SELECT last(value_meta) FROM instance WHERE time>=1507528800000000000 AND time<=1507647600000000000 AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"disk.usage\" WHERE time>=1507528800000000000 AND time<=1507647600000000000 AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"disk.capacity\" WHERE time>=1507528800000000000 AND time<=1507647600000000000 AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"memory_util\" WHERE time>=1507528800000000000 AND time<=1507647600000000000 AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"cpu_util\" WHERE time>=1507528800000000000 AND time<=1507647600000000000 AND region='"+regionid+"' AND resource_id='"+vmid+"'", request=request)
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            raise Exception('Call to Influx did not return 200 code')
-            
-    except urllib2.HTTPError, error:
-        if strtobool(app.config["api"]["debugMode"]):
-            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] influx_get_region_vm do_influx_http_get httperror")
-        return None
-        
-    except urllib2.URLError, error:
-        if strtobool(app.config["api"]["debugMode"]):
-            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] influx_get_region_vm do_influx_http_get urlerror")
-        return None
-        
-    except Exception as e:
-        if strtobool(app.config["api"]["debugMode"]):
-            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] influx_get_region_vm do_influx_http_get exception")
-        return None
-
 #get vm entity list dict for a given region
 def get_vms_from_influx(regionid):
-    vms = influx_get_all_region_vms(regionid) 
+    vms = influx_collector.get_all_region_vms(regionid)
     #print(vms)
     result_dict = {"vms": [], "links": {"self": {"href": "/monitoring/regions/" + regionid + "/vms"}}, "measures": [{}]}
-    if vms and len(vms["results"]) and vms["results"][0].has_key("series"):
-        for vm in vms["results"][0]["series"]:
-            vmid = vm["tags"]["resource_id"]
-            base_dict_list["_links"]["self"]["href"] = "/monitoring/regions/" + regionid + "/vms/" + vmid
-            base_dict_list["id"] = vmid
-            result_dict["vms"].append(copy.deepcopy(base_dict_list))
+
+    if vms and len(vms):
+        for vm in vms:
+            if len(vm) and len(vm[0])>1 and vm[0][1].has_key("resource_id"): 
+                vmid = vm[0][1]["resource_id"]
+                base_dict_list["_links"]["self"]["href"] = "/monitoring/regions/" + regionid + "/vms/" + vmid
+                base_dict_list["id"] = vmid
+                result_dict["vms"].append(copy.deepcopy(base_dict_list))
     #print(result_dict)
     return json.dumps(result_dict) 
 
 #get vm entity for a given region
 def get_vm_from_influx(regionid, vmid):
-    vm = influx_get_region_vm(regionid, vmid) 
-    #print(vm)
+    vm = influx_collector.get_region_vm(regionid, vmid) 
     result_dict = {"links": {"self": {"href": "/monitoring/regions/" + regionid + "/vms/"+ vmid}}, "measures": [{}]}
-    #for meta in vms["results"][0]["series"][0]["values"]:
-        #vmid = vm["tags"]["resource_id"]
-        #base_dict_list["_links"]["self"]["href"] = "/monitoring/regions/" + regionid + "/vms/" + vmid
-        #base_dict_list["id"] = vmid
-        #result_dict["vms"].append(copy.deepcopy(base_dict_list))
-    #print(result_dict)
-    
+        
     timestamp = ""
     value_meta = ""
-    if vm and len(vm["results"]) and vm["results"][0].has_key("series"):
-        instance_value_meta = json.loads(vm["results"][0]["series"][0]["values"][0][1])
-        timestamp = vm["results"][0]["series"][0]["values"][0][0]
-        if instance_value_meta.has_key("host"):
-            value_meta = instance_value_meta["host"] 
     disk_util = 0
-    if vm and len(vm["results"])>2 and vm["results"][1].has_key("series") and vm["results"][2].has_key("series"):
-        disk_usage = int(vm["results"][1]["series"][0]["values"][0][1])
-        disk_capacity = int(vm["results"][2]["series"][0]["values"][0][1])
-        if disk_capacity > 0:
-            disk_util = disk_usage*100/disk_capacity
     memory_util = 0
-    if vm and len(vm["results"])>4 and vm["results"][3].has_key("series"):
-        memory_util = float(vm["results"][3]["series"][0]["values"][0][1])
     cpu_util = 0
-    if vm and len(vm["results"])>5 and vm["results"][4].has_key("series"):
-        cpu_util = float(vm["results"][4]["series"][0]["values"][0][1])
+    
+    disk_usage_vm = None
+    disk_capacity_vm = None
+    memory_util_vm = None
+    cpu_util_vm = None
+    instance_vm = None
+    
+    for vm_elements in vm:
+        if vm_elements:   
+            if len(list(vm_elements.get_points(measurement='disk.usage'))):
+                disk_usage_vm = list(vm_elements.get_points(measurement='disk.usage'))
+            if len(list(vm_elements.get_points(measurement='disk.capacity'))):
+                disk_capacity_vm = list(vm_elements.get_points(measurement='disk.capacity'))
+            if len(list(vm_elements.get_points(measurement='memory_util'))):
+                memory_util_vm = list(vm_elements.get_points(measurement='memory_util'))
+            if len(list(vm_elements.get_points(measurement='cpu_util'))):
+                cpu_util_vm = list(vm_elements.get_points(measurement='cpu_util'))
+            if len(list(vm_elements.get_points(measurement='instance'))):
+                instance_vm = list(vm_elements.get_points(measurement='instance'))
+        
+    if disk_usage_vm and disk_capacity_vm:
+        disk_usage = 0
+        if disk_usage_vm[0].has_key("value"):
+            disk_usage = int(disk_usage_vm[0]["value"])
+        if disk_capacity_vm[0].has_key("value"):
+            disk_capacity = int(disk_capacity_vm[0]["value"])
+            if disk_capacity > 0:
+                disk_util = disk_usage*100/disk_capacity
+     
+    if memory_util_vm:
+        if memory_util_vm[0].has_key("value"):
+            memory_util = float(memory_util_vm[0]["value"])
+            
+    if cpu_util_vm:
+        if cpu_util_vm[0].has_key("value"):
+            cpu_util = float(cpu_util_vm[0]["value"])
+            
+    if instance_vm:
+        if instance_vm[0].has_key("time"):
+            timestamp = instance_vm[0]["time"]
+        if instance_vm[0].has_key("last"):
+            value_meta_json = json.loads(instance_vm[0]["last"])
+            if value_meta_json.has_key("host"):
+                value_meta = value_meta_json["host"] 
     
     result_dict["measures"] = [{
         "timestamp": "" + timestamp,
@@ -2364,6 +2293,7 @@ def main():
     import monitoringHisto.monitoringHisto
     from monitoringHisto.monitoringHisto import utils as _histo_utils_
     from monitoringHisto.monitoringHisto import CollectorMonasca
+    from CollectorInflux import CollectorInflux
     
     global histo_utils
     histo_utils = _histo_utils_
@@ -2379,6 +2309,21 @@ def main():
         collector = CollectorMonasca(user, password, monasca_endpoint, keystone_endpoint, config_map)
     except Exception as e:
         print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] Problem creating Monasca Collector")
+        print(traceback.format_exc())
+        sys.exit(-1)
+        
+    # Setup influx collector
+    global influx_collector
+    influx_host = config_map["influxdb"]["host"]
+    influx_port = config_map["influxdb"]["port"]
+    dbname = config_map["influxdb"]["dbname"]
+    user = config_map["influxdb"]["user"]
+    password = config_map["influxdb"]["password"]
+    debugMode = config_map["api"]["debugMode"]
+    try:        
+        influx_collector = CollectorInflux(user, password, dbname, influx_host, influx_port, debugMode)
+    except Exception as e:
+        print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] Problem creating Influx Collector")
         print(traceback.format_exc())
         sys.exit(-1)
 
