@@ -1997,6 +1997,9 @@ def get_vm_from_influx(regionid, vmid):
         
     return json.dumps(result_dict) 
 
+def get_number_of_active_vms_from_influx(regionid):
+    return influx_collector.get_number_of_active_vms_for_region(regionid)
+    
 #end Influx------------------------------------------------------------------------------
 
 def get_cursor_vms_from_mongo(mongodb, regionid):
