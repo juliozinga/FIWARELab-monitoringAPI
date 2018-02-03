@@ -460,7 +460,7 @@ class CollectorMonasca:
                 # Retrieve measurementes from monasca
                 measurements = self.get_process_measurements(process_name, process_hostname, service_name, regionid, start_timestamp, end_timestamp)
 
-                if [statistics is None ] or [measurements is None]:
+                if not (statistics and measurements):
                     return None
 
                 # Remove statistics for which no measurements are present in monasca and store
@@ -477,7 +477,7 @@ class CollectorMonasca:
         # Retrieve measurementes from monasca
         measurements = self.get_sanities_measurements(regionid, start_timestamp, end_timestamp)
 
-        if [statistics is None ] or [measurements is None]:
+        if not (statistics and measurements):
             return None
 
         # Remove statistics for which no measurements are present in monasca
