@@ -3,12 +3,12 @@
 aggregate() {
     # Daily aggregation
     for d in {1..30}; do
-	echo "---- START:${YEAR}-${MONTH}-$d END:${YEAR}-${MONTH}-$(( ${d}+1 )) -----"
+	echo "---- START:${YEAR}-${MONTH}-$d END:${YEAR}-${MONTH}-$(( ${d}+1 )) -----" 2>&1 | tee -a ./historicalMonitoringLongRun-${YEAR}${MONTH}.log
 	/root/.virtualenvs/monitoringProd/bin/monitoringHisto -c /root/monitoringPROD/FIWARELab-monitoringAPI/monitoringHisto/monitoringHisto/conf/config-password.ini -s ${YEAR}-${MONTH}-$d -e ${YEAR}-${MONTH}-$(( ${d}+1 )) 2>&1 | tee -a ./historicalMonitoringLongRun-${YEAR}${MONTH}.log
     done
 
     # Montly aggregation
-    echo "---- START:${YEAR}-${MONTH}-${MONTH_DAYS} END:${YEAR}-$(( ${MONTH}+1 ))-01 -----"
+    echo "---- START:${YEAR}-${MONTH}-${MONTH_DAYS} END:${YEAR}-$(( ${MONTH}+1 ))-01 -----" 2>&1 | tee -a ./historicalMonitoringLongRun-${YEAR}${MONTH}.log
     /root/.virtualenvs/monitoringProd/bin/monitoringHisto -c /root/monitoringPROD/FIWARELab-monitoringAPI/monitoringHisto/monitoringHisto/conf/config-password.ini -s ${YEAR}-${MONTH}-${MONTH_DAYS} -e ${YEAR}-$(( ${MONTH}+1 ))-01 2>&1 | tee -a ./historicalMonitoringLongRun-${YEAR}${MONTH}.log 
 }
 
