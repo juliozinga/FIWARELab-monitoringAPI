@@ -59,3 +59,8 @@
    #+BEGIN_SRC sh
    for region in $(cat region-list.txt) ; do mysql -u NEW_DB_NAME -pDB_PWD NEW_DB_NAME < ./"$region"_host_service_old_db.sql; done
    #+END_SRC
+** Mass aggregate old region data
+   Properly customise the =historicalMonitoringLongRun.sh= script and run with:
+   #+BEGIN_SRC bash
+   ./historicalMonitoringLongRun.sh
+   #+END_SRC
