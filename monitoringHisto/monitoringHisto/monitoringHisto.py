@@ -116,8 +116,8 @@ def main():
             persister.persist_sanity(sanities)
         else:
             # No sanities data available on the specified range, rise a warning
-            LOG.warning("No sanities data available on the specified range for \
-                region: %s", region)
+            LOG.warning("No sanities data available on the specified range "
+                        "for region: %s", region)
         # Retrieve processes aggregation
         hour_agg = model.Aggregation('h', 3600, 'avg')
         services_processes = collector.get_services_processes_avg(
@@ -128,8 +128,8 @@ def main():
         processes = []
         for service in services_processes:
             if services_processes[service] is None:
-                LOG.warning("No services process data available on the specified \
-                range for region: %s and service: %s",
+                LOG.warning("No services process data available on the "
+                            "specified range for region: %s and service: %s",
                             region, service)
                 continue
             for process_name in services_processes[service].keys():
