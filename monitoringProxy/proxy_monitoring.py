@@ -1973,7 +1973,7 @@ def get_region_from_monasca(regionid):
         hosts_measures = get_hosts_measurements_from_monasca(regionid)
         hosts = []
         
-        if len(hosts_measures) > 0:
+        if hosts_measures and len(hosts_measures) > 0:
             hosts = hosts_measures.values()
             if strtobool(app.config["api"]["debugMode"]):
                 print "["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] Hosts of "+regionid+" loaded"
