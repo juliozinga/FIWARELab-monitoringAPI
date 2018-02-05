@@ -808,6 +808,12 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
                 region = get_region_from_mongo(mongodb, region_id)
                 if region is not None:
                     region_list[region_id] = region
+                #if region is not in mongo, but we have its coordinates and country, we add it to the list
+                elif not region and get_region_data(region_id):
+                    region_item = {"id": {}, "_links": {"self": {"href": {}}}}
+                    region_item["id"] = region_id
+                    region_item["_links"]["self"]["href"] = "/monitoring/regions/" + region_id
+                    regions_entity["_embedded"]["regions"].append(copy.deepcopy(region_item))
             except ServerSelectionTimeoutError as e:
                 if strtobool(app.config["api"]["debugMode"]):
                     print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_all_regions_from_mongo get_region_from_mongo ServerSelectionTimeoutError for"+region_id)
