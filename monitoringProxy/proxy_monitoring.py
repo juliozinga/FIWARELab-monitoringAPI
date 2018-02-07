@@ -1822,16 +1822,17 @@ def get_region_from_monasca(regionid):
                 "ipAssigned": "",
                 "ipAllocated": "",
                 "ipTot": "",
-                "nb_cores_used": 0,
-                # "nb_cores_enabled": 0,
                 "nb_cores": 0,
+                "nb_cores_used": 0,
+                # "nb_cores_enabled": 0,                
                 "nb_disk": 0,
                 "nb_ram": 0,
                 "nb_vm": 0,
+                "power_consumption": "",
                 "ram_allocation_ratio": "",
                 "cpu_allocation_ratio": "",
                 "percRAMUsed": 0,
-                "percDiskUsed": 0
+                "percDiskUsed": 0,
             }
         ],
         "components": [
@@ -1849,13 +1850,13 @@ def get_region_from_monasca(regionid):
         "country": "",
         "latitude": "",
         "longitude": "",
-        "nb_cores": 0,
+        #"nb_cores": 0,
         # "nb_cores_enabled": 0,
-        "nb_cores_used": 0,
-        "nb_ram": 0,
-        "nb_disk": 0,
-        "nb_vm": 0,
-        "power_consumption": ""
+        #"nb_cores_used": 0,
+        #"nb_ram": 0,
+        #"nb_disk": 0,
+        #"nb_vm": 0,
+        #"power_consumption": ""
     }
     
     # get from monasca the entity region
@@ -1971,7 +1972,7 @@ def get_region_from_monasca(regionid):
             vms_data = aggr_monasca_vms_data(vms)
             if vms_data and vms_data.has_key("nb_vm"):
                 region_entity["measures"][0]["nb_vm"] = vms_data["nb_vm"]
-                region_entity["nb_vm"] = vms_data["nb_vm"]
+                #region_entity["nb_vm"] = vms_data["nb_vm"]
 
 
         if strtobool(app.config["api"]["debugMode"]):
@@ -1992,25 +1993,25 @@ def get_region_from_monasca(regionid):
         if hosts is not None and hosts!=[]:
             hosts_data = aggr_monasca_hosts_data(hosts, regionid)
             if hosts_data:
-                region_entity["nb_ram"] = hosts_data["ramTot"]
+                #region_entity["nb_ram"] = hosts_data["ramTot"]
                 region_entity["measures"][0]["nb_ram"] = hosts_data["ramTot"]
-                region_entity["nb_disk"] = hosts_data["diskTot"]
+                #region_entity["nb_disk"] = hosts_data["diskTot"]
                 region_entity["measures"][0]["nb_disk"] = hosts_data["diskTot"]
-                region_entity["nb_cores"] = hosts_data["cpuTot"]
+                #region_entity["nb_cores"] = hosts_data["cpuTot"]
                 region_entity["measures"][0]["nb_cores"] = hosts_data["cpuTot"]
-                region_entity["nb_cores_used"] = hosts_data["cpuNow"]
+                #region_entity["nb_cores_used"] = hosts_data["cpuNow"]
                 region_entity["measures"][0]["nb_cores_used"] = hosts_data["cpuNow"]
-                region_entity["measures"][0]["percRAMUsed"] = 0
-                region_entity["measures"][0]["percDiskUsed"] = 0
+                region_entity["measures"][0]["percRAMUsed"]["value"] = 0
+                region_entity["measures"][0]["percDiskUsed"]["value"] = 0
                 if hosts_data["ramTot"] != 0:
                     if region_metadata["measurements"][2].has_key('ram_allocation_ratio'):
                         ram_allocation_ratio = float(region_metadata["measurements"][2]["ram_allocation_ratio"])
                     else:
                         ram_allocation_ratio = 1.0
-                    region_entity["measures"][0]["percRAMUsed"] = hosts_data["ramNowTot"] / (
+                    region_entity["measures"][0]["percRAMUsed"]["value"] = hosts_data["ramNowTot"] / (
                     hosts_data["ramTot"] * ram_allocation_ratio)
                 if hosts_data["diskTot"] != 0:
-                    region_entity["measures"][0]["percDiskUsed"] = hosts_data["diskNowTot"] / hosts_data["diskTot"]
+                    region_entity["measures"][0]["percDiskUsed"]["value"] = hosts_data["diskNowTot"] / hosts_data["diskTot"]
 
         # add components versions to region entity
         if region_metadata["measurements"][2].has_key('ceilometer_version'):
