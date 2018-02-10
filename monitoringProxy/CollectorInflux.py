@@ -27,7 +27,7 @@ class CollectorInflux:
     def get_all_region_vms(self, regionid, start_timestamp, active=True):     
     
         try:
-            response = self.__perform_influx_query("SELECT last(value_meta) FROM instance WHERE value_meta =~ /active/ AND time>="+start_timestamp+" AND region='"+regionid+"' GROUP BY resource_id")
+            response = self.__perform_influx_query("SELECT last(value_meta) FROM instance WHERE value_meta =~ /active/ AND time>='"+start_timestamp+"' AND region='"+regionid+"' GROUP BY resource_id")
             
             try:
                 response_list = list(response.items())
@@ -68,7 +68,7 @@ class CollectorInflux:
     def get_region_vm(self, regionid, start_timestamp, vmid):     
     
         try:
-            response = self.__perform_influx_query("SELECT last(value_meta) FROM instance WHERE time>="+start_timestamp+" AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"disk.usage\" WHERE time>="+start_timestamp+" AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"disk.capacity\" WHERE time>="+start_timestamp+" AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"memory_util\" WHERE time>="+start_timestamp+" AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"cpu_util\" WHERE time>="+start_timestamp+" AND region='"+regionid+"' AND resource_id='"+vmid+"'")
+            response = self.__perform_influx_query("SELECT last(value_meta) FROM instance WHERE time>='"+start_timestamp+"' AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"disk.usage\" WHERE time>='"+start_timestamp+"' AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"disk.capacity\" WHERE time>='"+start_timestamp+"' AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"memory_util\" WHERE time>='"+start_timestamp+"' AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"cpu_util\" WHERE time>='"+start_timestamp+"' AND region='"+regionid+"' AND resource_id='"+vmid+"'")
             
             try:
                 #response_list = list(response.items())
@@ -110,7 +110,7 @@ class CollectorInflux:
         
     def get_number_of_active_vms_for_region(self, regionid, start_timestamp):
         try:
-            response = self.__perform_influx_query("SELECT last(count) FROM n_vms_for_region WHERE time>="+start_timestamp+" AND region= '"+ regionid +"'")
+            response = self.__perform_influx_query("SELECT last(count) FROM n_vms_for_region WHERE time>='"+start_timestamp+"' AND region= '"+ regionid +"'")
             
             try:
                 response_list = list(response.get_points())
@@ -153,7 +153,7 @@ class CollectorInflux:
         
     def get_number_of_active_vms(self, start_timestamp):
         try:
-            response = self.__perform_influx_query("SELECT last(count) FROM n_vms_for_region WHERE time>="+start_timestamp+" GROUP BY region")
+            response = self.__perform_influx_query("SELECT last(count) FROM n_vms_for_region WHERE time>='"+start_timestamp+"' GROUP BY region")
             
             try:
                 tot = 0
