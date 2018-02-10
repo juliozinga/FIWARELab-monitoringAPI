@@ -2108,18 +2108,19 @@ def get_vm_from_influx(regionid, vmid):
     cpu_util_vm = None
     instance_vm = None
     
-    for vm_elements in vm:
-        if vm_elements:   
-            if len(list(vm_elements.get_points(measurement='disk.usage'))):
-                disk_usage_vm = list(vm_elements.get_points(measurement='disk.usage'))
-            if len(list(vm_elements.get_points(measurement='disk.capacity'))):
-                disk_capacity_vm = list(vm_elements.get_points(measurement='disk.capacity'))
-            if len(list(vm_elements.get_points(measurement='memory_util'))):
-                memory_util_vm = list(vm_elements.get_points(measurement='memory_util'))
-            if len(list(vm_elements.get_points(measurement='cpu_util'))):
-                cpu_util_vm = list(vm_elements.get_points(measurement='cpu_util'))
-            if len(list(vm_elements.get_points(measurement='instance'))):
-                instance_vm = list(vm_elements.get_points(measurement='instance'))
+    if vm and len(vm):
+        for vm_elements in vm:
+            if vm_elements:   
+                if len(list(vm_elements.get_points(measurement='disk.usage'))):
+                    disk_usage_vm = list(vm_elements.get_points(measurement='disk.usage'))
+                if len(list(vm_elements.get_points(measurement='disk.capacity'))):
+                    disk_capacity_vm = list(vm_elements.get_points(measurement='disk.capacity'))
+                if len(list(vm_elements.get_points(measurement='memory_util'))):
+                    memory_util_vm = list(vm_elements.get_points(measurement='memory_util'))
+                if len(list(vm_elements.get_points(measurement='cpu_util'))):
+                    cpu_util_vm = list(vm_elements.get_points(measurement='cpu_util'))
+                if len(list(vm_elements.get_points(measurement='instance'))):
+                    instance_vm = list(vm_elements.get_points(measurement='instance'))
         
     if disk_usage_vm and disk_capacity_vm:
         disk_usage = 0
