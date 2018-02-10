@@ -24,10 +24,10 @@ class CollectorInflux:
     def __perform_influx_query(self, query):
         return self.__influx_client.query(query)
     
-    def get_all_region_vms(self, regionid, active=True):     
+    def get_all_region_vms(self, regionid, start_timestamp, active=True):     
     
         try:
-            response = self.__perform_influx_query("SELECT last(value_meta) FROM instance WHERE value_meta =~ /active/ AND time>=1507528800000000000 AND time<=1507647600000000000 AND region='"+regionid+"' GROUP BY resource_id")
+            response = self.__perform_influx_query("SELECT last(value_meta) FROM instance WHERE value_meta =~ /active/ AND time>="+start_timestamp+" AND region='"+regionid+"' GROUP BY resource_id")
             
             try:
                 response_list = list(response.items())
@@ -41,6 +41,7 @@ class CollectorInflux:
         except InfluxDBClientError, error: 
             if strtobool(self.__debugMode):
                 print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_all_region_vms __perform_influx_query InfluxDBClientError")
+                print(traceback.format_exc())
             return None
         
         except InfluxDBServerError, error: 
@@ -64,10 +65,10 @@ class CollectorInflux:
                 print(traceback.format_exc())  
             return None
         
-    def get_region_vm(self, regionid, vmid):     
+    def get_region_vm(self, regionid, start_timestamp, vmid):     
     
         try:
-            response = self.__perform_influx_query("SELECT last(value_meta) FROM instance WHERE time>=1507528800000000000 AND time<=1507647600000000000 AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"disk.usage\" WHERE time>=1507528800000000000 AND time<=1507647600000000000 AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"disk.capacity\" WHERE time>=1507528800000000000 AND time<=1507647600000000000 AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"memory_util\" WHERE time>=1507528800000000000 AND time<=1507647600000000000 AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"cpu_util\" WHERE time>=1507528800000000000 AND time<=1507647600000000000 AND region='"+regionid+"' AND resource_id='"+vmid+"'")
+            response = self.__perform_influx_query("SELECT last(value_meta) FROM instance WHERE time>="+start_timestamp+" AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"disk.usage\" WHERE time>="+start_timestamp+" AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"disk.capacity\" WHERE time>="+start_timestamp+" AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"memory_util\" WHERE time>="+start_timestamp+" AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"cpu_util\" WHERE time>="+start_timestamp+" AND region='"+regionid+"' AND resource_id='"+vmid+"'")
             
             try:
                 #response_list = list(response.items())
@@ -83,6 +84,7 @@ class CollectorInflux:
         except InfluxDBClientError, error: 
             if strtobool(self.__debugMode):
                 print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_vm __perform_influx_query InfluxDBClientError")
+                print(traceback.format_exc())
             return None
         
         except InfluxDBServerError, error: 
@@ -106,9 +108,9 @@ class CollectorInflux:
                 print(traceback.format_exc())  
             return None
         
-    def get_number_of_active_vms_for_region(self, regionid):
+    def get_number_of_active_vms_for_region(self, regionid, start_timestamp):
         try:
-            response = self.__perform_influx_query("SELECT last(count) FROM vms_for_region WHERE time>=1507528800000000000 AND time<=1507647600000000000 AND region= '"+ regionid +"'")
+            response = self.__perform_influx_query("SELECT last(count) FROM n_vms_for_region WHERE time>="+start_timestamp+" AND region= '"+ regionid +"'")
             
             try:
                 response_list = list(response.get_points())
@@ -118,13 +120,14 @@ class CollectorInflux:
                 return 0
             except Exception as e:
                 if strtobool(self.__debugMode):
-                    print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_number_of_active_vms_for_region response.items() exception")
+                    print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_number_of_active_vms_for_region response.get_points() exception")
                     print(traceback.format_exc())  
                 return 0
 
         except InfluxDBClientError, error: 
             if strtobool(self.__debugMode):
                 print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_number_of_active_vms_for_region __perform_influx_query InfluxDBClientError")
+                print(traceback.format_exc())
             return 0
         
         except InfluxDBServerError, error: 
@@ -145,5 +148,53 @@ class CollectorInflux:
         except Exception as e:
             if strtobool(self.__debugMode):
                 print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_number_of_active_vms_for_region __perform_influx_query exception")
+                print(traceback.format_exc())  
+            return 0
+        
+    def get_number_of_active_vms(self, start_timestamp):
+        try:
+            response = self.__perform_influx_query("SELECT last(count) FROM n_vms_for_region WHERE time>="+start_timestamp+" GROUP BY region")
+            
+            try:
+                tot = 0
+                if response:
+                    response_list = list(response.get_points())
+
+                    if response_list and len(response_list): 
+                        for region_vms in response_list:
+                            if region_vms.has_key("last"):
+                                tot += int(region_vms["last"])
+
+                return tot
+            except Exception as e:
+                if strtobool(self.__debugMode):
+                    print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_number_of_active_vms response.items() exception")
+                    print(traceback.format_exc())  
+                return 0
+
+        except InfluxDBClientError, error: 
+            if strtobool(self.__debugMode):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_number_of_active_vms __perform_influx_query InfluxDBClientError")
+                print(traceback.format_exc())
+            return 0
+        
+        except InfluxDBServerError, error: 
+            if strtobool(self.__debugMode):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_number_of_active_vms __perform_influx_query InfluxDBServerError")
+            return 0
+         
+        except urllib2.HTTPError, error:
+            if strtobool(self.__debugMode):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_number_of_active_vms __perform_influx_query httperror")
+            return 0
+            
+        except urllib2.URLError, error:
+            if strtobool(self.__debugMode):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_number_of_active_vms __perform_influx_query urlerror")
+            return 0
+            
+        except Exception as e:
+            if strtobool(self.__debugMode):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_number_of_active_vms __perform_influx_query exception")
                 print(traceback.format_exc())  
             return 0

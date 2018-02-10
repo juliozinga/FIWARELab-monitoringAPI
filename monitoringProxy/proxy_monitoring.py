@@ -924,6 +924,7 @@ def get_all_regions_from_mongo(mongodb, mongodbOld):
         regions_entity["totalUserOrganizations"] = regions_tmp["totalUserOrganizations"]
         regions_entity["total_nb_organizations"] = regions_tmp["total_nb_organizations"]
     
+    regions_entity["total_nb_vm"] = get_number_of_active_vms_from_influx()
     return regions_entity
 
 
@@ -1987,12 +1988,14 @@ def get_region_from_monasca(regionid):
 
         #aggragation from virtual machines on region
         #vms = get_cursor_active_vms_from_mongo(mongodb, regionid)
-        vms = get_vms_from_monasca(regionid)
-        if vms is not None:
-            vms_data = aggr_monasca_vms_data(vms)
-            if vms_data and vms_data.has_key("nb_vm"):
-                region_entity["measures"][0]["nb_vm"] = vms_data["nb_vm"]
+        ##vms = get_vms_from_monasca(regionid)
+        ##if vms is not None:
+            ##vms_data = aggr_monasca_vms_data(vms)
+            ##if vms_data and vms_data.has_key("nb_vm"):
+                ##region_entity["measures"][0]["nb_vm"] = vms_data["nb_vm"]
                 #region_entity["nb_vm"] = vms_data["nb_vm"]
+                
+        region_entity["measures"][0]["nb_vm"] = get_number_of_active_vms_for_region_from_influx(regionid)
 
 
         if strtobool(app.config["api"]["debugMode"]):
@@ -2070,7 +2073,9 @@ def get_vms_from_monasca(regionId):
 
 #get vm entity list dict for a given region
 def get_vms_from_influx(regionid):
-    vms = influx_collector.get_all_region_vms(regionid)
+    start = histo_utils.get_datetime_with_delta_sec(int(app.config["api"]["vmTTL"]))
+    start_timestamp = histo_utils.from_datetime_ms_to_monasca_ts(start)
+    vms = influx_collector.get_all_region_vms(regionid, start_timestamp)
     #print(vms)
     result_dict = {"vms": [], "links": {"self": {"href": "/monitoring/regions/" + regionid + "/vms"}}, "measures": [{}]}
 
@@ -2086,7 +2091,9 @@ def get_vms_from_influx(regionid):
 
 #get vm entity for a given region
 def get_vm_from_influx(regionid, vmid):
-    vm = influx_collector.get_region_vm(regionid, vmid) 
+    start = histo_utils.get_datetime_with_delta_sec(int(app.config["api"]["vmTTL"]))
+    start_timestamp = histo_utils.from_datetime_ms_to_monasca_ts(start)
+    vm = influx_collector.get_region_vm(regionid, vmid, start_timestamp) 
     result_dict = {"links": {"self": {"href": "/monitoring/regions/" + regionid + "/vms/"+ vmid}}, "measures": [{}]}
         
     timestamp = ""
@@ -2165,8 +2172,15 @@ def get_vm_from_influx(regionid, vmid):
         
     return json.dumps(result_dict) 
 
-def get_number_of_active_vms_from_influx(regionid):
-    return influx_collector.get_number_of_active_vms_for_region(regionid)
+def get_number_of_active_vms_for_region_from_influx(regionid):
+    start = histo_utils.get_datetime_with_delta_sec(int(app.config["api"]["vmTTL"]))
+    start_timestamp = histo_utils.from_datetime_ms_to_monasca_ts(start)
+    return influx_collector.get_number_of_active_vms_for_region(regionid,start_timestamp)
+
+def get_number_of_active_vms_from_influx():
+    start = histo_utils.get_datetime_with_delta_sec(int(app.config["api"]["vmTTL"]))
+    start_timestamp = histo_utils.from_datetime_ms_to_monasca_ts(start)
+    return influx_collector.get_number_of_active_vms(start_timestamp)
     
 #end Influx------------------------------------------------------------------------------
 
