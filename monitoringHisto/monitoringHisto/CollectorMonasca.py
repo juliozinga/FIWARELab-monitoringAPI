@@ -347,12 +347,37 @@ class CollectorMonasca:
                 resources.add(metric['dimensions']['resource_id'])
         return resources
     
+    def get_measurements_for_metric(self, regionid, metricName, start_timestamp):
+        params = {}
+        dimensions = {'region' : regionid}
+        params['dimensions'] = dimensions
+        params['name'] = metricName
+        params['start_time'] = start_timestamp
+        params['group_by'] = "*"
+        measurements = self.__perform_monasca_query(self.__monasca_client.metrics.list_measurements, params, MonascaFunction.LIST_MEASUREMENTS, 1)
+        return measurements
+    
+    def get_measurements_resources_for_metric(self, regionid, metricName, start_timestamp):
+        params = {}
+        dimensions = {'region' : regionid}
+        params['dimensions'] = dimensions
+        params['name'] = metricName
+        params['start_time'] = start_timestamp
+        params['group_by'] = "*"
+        measurements = self.__perform_monasca_query(self.__monasca_client.metrics.list_measurements, params, MonascaFunction.LIST_MEASUREMENTS, 1)
+        resources = set()
+        if measurements:
+            for measurement in measurements:
+                resources.add(measurement['dimensions']['resource_id'])
+        return resources
+    
     def get_measurements_for_hostname(self, regionid, metricName, hostname, start_timestamp):
         params = {}
         dimensions = {'region' : regionid, 'resource_id' : hostname}
         params['dimensions'] = dimensions
         params['name'] = metricName
         params['start_time'] = start_timestamp
+        params['group_by'] = "*"
         measurements = self.__perform_monasca_query(self.__monasca_client.metrics.list_measurements, params, MonascaFunction.LIST_MEASUREMENTS, 1)
         return measurements
 
@@ -362,6 +387,7 @@ class CollectorMonasca:
         params['dimensions'] = dimensions
         params['name'] = "region.pool_ip"
         params['start_time'] = start_timestamp
+        params['group_by'] = "*"
         measurements = self.__perform_monasca_query(self.__monasca_client.metrics.list_measurements, params, MonascaFunction.LIST_MEASUREMENTS, 1)
         return measurements
 
@@ -371,6 +397,7 @@ class CollectorMonasca:
         params['dimensions'] = dimensions
         params['name'] = "region.allocated_ip"
         params['start_time'] = start_timestamp
+        params['group_by'] = "*"
         measurements = self.__perform_monasca_query(self.__monasca_client.metrics.list_measurements, params, MonascaFunction.LIST_MEASUREMENTS, 1)
         return measurements
 
@@ -380,6 +407,7 @@ class CollectorMonasca:
         params['dimensions'] = dimensions
         params['name'] = "region.used_ip"
         params['start_time'] = start_timestamp
+        params['group_by'] = "*"
         measurements = self.__perform_monasca_query(self.__monasca_client.metrics.list_measurements, params, MonascaFunction.LIST_MEASUREMENTS, 1)
         return measurements
 
@@ -460,6 +488,9 @@ class CollectorMonasca:
                 # Retrieve measurementes from monasca
                 measurements = self.get_process_measurements(process_name, process_hostname, service_name, regionid, start_timestamp, end_timestamp)
 
+                if not (statistics and measurements):
+                    return None
+
                 # Remove statistics for which no measurements are present in monasca and store
                 m_days_set = self.from_dates_to_days_set(self.from_measurements_to_dates(measurements))
                 self.clean_statistics(statistics, m_days_set)
@@ -473,6 +504,9 @@ class CollectorMonasca:
 
         # Retrieve measurementes from monasca
         measurements = self.get_sanities_measurements(regionid, start_timestamp, end_timestamp)
+
+        if not (statistics and measurements):
+            return None
 
         # Remove statistics for which no measurements are present in monasca
         m_days_set = self.from_dates_to_days_set(self.from_measurements_to_dates(measurements))
