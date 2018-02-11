@@ -65,7 +65,7 @@ class CollectorInflux:
                 print(traceback.format_exc())  
             return None
         
-    def get_region_vm(self, regionid, start_timestamp, vmid):     
+    def get_region_vm(self, regionid, vmid, start_timestamp):     
     
         try:
             response = self.__perform_influx_query("SELECT last(value_meta) FROM instance WHERE time>='"+start_timestamp+"' AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"disk.usage\" WHERE time>='"+start_timestamp+"' AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"disk.capacity\" WHERE time>='"+start_timestamp+"' AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"memory_util\" WHERE time>='"+start_timestamp+"' AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"cpu_util\" WHERE time>='"+start_timestamp+"' AND region='"+regionid+"' AND resource_id='"+vmid+"'")
