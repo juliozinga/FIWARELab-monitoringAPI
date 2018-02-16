@@ -347,10 +347,11 @@ class CollectorMonasca:
                 resources.add(metric['dimensions']['resource_id'])
         return resources
     
-    def get_measurements_for_metric(self, regionid, metricName, start_timestamp):
+    def get_measurements_for_metric(self, metricName, start_timestamp, regionid = None):
         params = {}
-        dimensions = {'region' : regionid}
-        params['dimensions'] = dimensions
+        if regionid:
+            dimensions = {'region' : regionid}
+            params['dimensions'] = dimensions
         params['name'] = metricName
         params['start_time'] = start_timestamp
         params['group_by'] = "*"
@@ -381,35 +382,14 @@ class CollectorMonasca:
         measurements = self.__perform_monasca_query(self.__monasca_client.metrics.list_measurements, params, MonascaFunction.LIST_MEASUREMENTS, 1)
         return measurements
 
-    def get_pool_ip_for_region(self, regionid, start_timestamp):
-        params = {}
-        dimensions = {'region' : regionid}
-        params['dimensions'] = dimensions
-        params['name'] = "region.pool_ip"
-        params['start_time'] = start_timestamp
-        params['group_by'] = "*"
-        measurements = self.__perform_monasca_query(self.__monasca_client.metrics.list_measurements, params, MonascaFunction.LIST_MEASUREMENTS, 1)
-        return measurements
+    def get_pool_ip_for_region(self, start_timestamp, regionid = None):
+        return self.get_measurements_for_metric("region.pool_ip", start_timestamp, regionid)
 
-    def get_allocated_ip_for_region(self, regionid, start_timestamp):
-        params = {}
-        dimensions = {'region' : regionid}
-        params['dimensions'] = dimensions
-        params['name'] = "region.allocated_ip"
-        params['start_time'] = start_timestamp
-        params['group_by'] = "*"
-        measurements = self.__perform_monasca_query(self.__monasca_client.metrics.list_measurements, params, MonascaFunction.LIST_MEASUREMENTS, 1)
-        return measurements
+    def get_allocated_ip_for_region(self, start_timestamp, regionid = None):
+        return self.get_measurements_for_metric("region.allocated_ip", start_timestamp, regionid)
 
-    def get_used_ip_for_region(self, regionid, start_timestamp):
-        params = {}
-        dimensions = {'region' : regionid}
-        params['dimensions'] = dimensions
-        params['name'] = "region.used_ip"
-        params['start_time'] = start_timestamp
-        params['group_by'] = "*"
-        measurements = self.__perform_monasca_query(self.__monasca_client.metrics.list_measurements, params, MonascaFunction.LIST_MEASUREMENTS, 1)
-        return measurements
+    def get_used_ip_for_region(self, start_timestamp, regionid = None):
+        return self.get_measurements_for_metric("region.used_ip", start_timestamp, regionid)
 
 #------------------------------------------------------------------
 

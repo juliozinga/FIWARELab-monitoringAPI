@@ -198,3 +198,132 @@ class CollectorInflux:
                 print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_number_of_active_vms __perform_influx_query exception")
                 print(traceback.format_exc())  
             return 0
+        
+    def get_region_host(self, regionid, hostid, start_timestamp):     
+    
+        try:
+            response = self.__perform_influx_query("SELECT last(value) as value FROM /compute.node./ WHERE time>='"+start_timestamp+"' AND region='"+regionid+"' AND resource_id='"+hostid+"'")
+            
+            try:
+                #response_list = list(response.items())
+                #print(list(response.get_points(measurement='disk.usage')))
+                #return None
+                return response
+            except Exception as e:
+                if strtobool(self.__debugMode):
+                    print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_host response.items() exception")
+                    print(traceback.format_exc())  
+                return None
+
+        except InfluxDBClientError, error: 
+            if strtobool(self.__debugMode):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_host __perform_influx_query InfluxDBClientError")
+                print(traceback.format_exc())
+            return None
+        
+        except InfluxDBServerError, error: 
+            if strtobool(self.__debugMode):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_host __perform_influx_query InfluxDBServerError")
+            return None
+         
+        except urllib2.HTTPError, error:
+            if strtobool(self.__debugMode):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_host __perform_influx_query httperror")
+            return None
+            
+        except urllib2.URLError, error:
+            if strtobool(self.__debugMode):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_host __perform_influx_query urlerror")
+            return None
+            
+        except Exception as e:
+            if strtobool(self.__debugMode):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_host __perform_influx_query exception")
+                print(traceback.format_exc())  
+            return None
+        
+    def get_region_hosts_data(self, regionid, start_timestamp):     
+    
+        try:
+            response = self.__perform_influx_query("SELECT last(value) as value FROM /compute.node./ WHERE time>='"+start_timestamp+"' AND region='"+regionid+"' GROUP BY resource_id")
+            
+            try:
+                #response_list = list(response.items())
+                #print(list(response.get_points(measurement='disk.usage')))
+                #return None
+                return response
+            except Exception as e:
+                if strtobool(self.__debugMode):
+                    print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_hosts_data response.items() exception")
+                    print(traceback.format_exc())  
+                return None
+
+        except InfluxDBClientError, error: 
+            if strtobool(self.__debugMode):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_hosts_data __perform_influx_query InfluxDBClientError")
+                print(traceback.format_exc())
+            return None
+        
+        except InfluxDBServerError, error: 
+            if strtobool(self.__debugMode):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_hosts_data __perform_influx_query InfluxDBServerError")
+            return None
+         
+        except urllib2.HTTPError, error:
+            if strtobool(self.__debugMode):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_hosts_data __perform_influx_query httperror")
+            return None
+            
+        except urllib2.URLError, error:
+            if strtobool(self.__debugMode):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_hosts_data __perform_influx_query urlerror")
+            return None
+            
+        except Exception as e:
+            if strtobool(self.__debugMode):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_hosts_data __perform_influx_query exception")
+                print(traceback.format_exc())  
+            return None
+        
+    def get_hosts_data(self, start_timestamp):     
+    
+        try:
+            response = self.__perform_influx_query("SELECT last(value) as value FROM /compute.node./ WHERE time>='"+start_timestamp+"' GROUP BY region,resource_id")
+            
+            try:
+                #response_list = list(response.items())
+                #print(list(response.get_points(measurement='disk.usage')))
+                #return None
+                return response
+            except Exception as e:
+                if strtobool(self.__debugMode):
+                    print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_hosts_data response.items() exception")
+                    print(traceback.format_exc())  
+                return None
+
+        except InfluxDBClientError, error: 
+            if strtobool(self.__debugMode):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_hosts_data __perform_influx_query InfluxDBClientError")
+                print(traceback.format_exc())
+            return None
+        
+        except InfluxDBServerError, error: 
+            if strtobool(self.__debugMode):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_hosts_data __perform_influx_query InfluxDBServerError")
+            return None
+         
+        except urllib2.HTTPError, error:
+            if strtobool(self.__debugMode):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_hosts_data __perform_influx_query httperror")
+            return None
+            
+        except urllib2.URLError, error:
+            if strtobool(self.__debugMode):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_hosts_data __perform_influx_query urlerror")
+            return None
+            
+        except Exception as e:
+            if strtobool(self.__debugMode):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_hosts_data __perform_influx_query exception")
+                print(traceback.format_exc())  
+            return None
