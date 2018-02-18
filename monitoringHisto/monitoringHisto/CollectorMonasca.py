@@ -365,7 +365,7 @@ class CollectorMonasca:
                 #we need to reauthenticate to keystone
                 else:
                     if self.__config and strtobool(self.__config["api"]["debugMode"]):
-                            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] CollectorMonasca.set_token_from_token_file: the parent Collector is going to reauthenticate because the token file was older than "+token_ttl+" seconds")
+                            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] CollectorMonasca.set_token_from_token_file: the parent Collector is going to reauthenticate because the token file was older than "+str(token_ttl)+" seconds")
                     self.__authenticate_monasca_client(1)
             else:
                 if self.__config and strtobool(self.__config["api"]["debugMode"]):
