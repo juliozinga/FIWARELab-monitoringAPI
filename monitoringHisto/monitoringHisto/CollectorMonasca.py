@@ -320,6 +320,60 @@ class CollectorMonasca:
                 lock.release()                
                 mutex.removeMutex()  
             
+    #def set_token_from_token_file(self):
+        #print(str(os.getpid())+"]["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"]")
+        
+    def update_token(self):
+        if self.__config:
+            tokenfile = self.__config['projectpath']['path']+"/lock_token.tmp"
+        else:
+            tokenfile = "/tmp/lock_token.tmp"
+        
+        lock = Lock(tokenfile)
+        if  lock.lockfileExists():
+            try:
+                lock.openLockfile('r')
+            except IOError:
+                if self.__config and strtobool(self.__config["api"]["debugMode"]):
+                    print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] CollectorMonasca.set_token_from_token_file: the token file could not be opened and read")
+                return
+            
+            parameters = lock.read()
+            lock.closeLockfile()
+            #if file is not empty
+            if parameters and len(parameters) == 2:
+                timestamp = utils.from_monasca_ts_to_datetime_ms(parameters[0])
+                difference = int((datetime.datetime.now()-timestamp).total_seconds())
+                #if token was got less than 3600 sec(1 hour) ago
+                token_ttl = 3600
+                if self.__config:
+                    token_ttl = int(self.__config['keystone']['token_ttl'])
+                    
+                if difference < token_ttl:
+                    #check if token is equal to the one stored inside the locked file. If not, take the stored one
+                    if parameters[1] != self.__token:
+                        #if the stored token is different from the one I have
+                        self.__token = parameters[1]
+                        # Instantiate a monascaclient object to use for query
+                        self.__monasca_client = client.Client(self.__api_version, self.__monasca_endpoint, token=self.__token)
+                        
+                        if self.__config and strtobool(self.__config["api"]["debugMode"]):
+                            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] CollectorMonasca.set_token_from_token_file: the parent Collector is taking and storing the token from file")
+                    else:
+                        if self.__config and strtobool(self.__config["api"]["debugMode"]):
+                            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] CollectorMonasca.set_token_from_token_file: the parent Collector has already an updated token")
+                #we need to reauthenticate to keystone
+                else:
+                    if self.__config and strtobool(self.__config["api"]["debugMode"]):
+                            print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] CollectorMonasca.set_token_from_token_file: the parent Collector is going to reauthenticate because the token file was older than "+token_ttl+" seconds")
+                    self.__authenticate_monasca_client(1)
+            else:
+                if self.__config and strtobool(self.__config["api"]["debugMode"]):
+                    print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] CollectorMonasca.set_token_from_token_file: the token file is empty")
+        else:
+            if self.__config and strtobool(self.__config["api"]["debugMode"]):
+                print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] CollectorMonasca.set_token_from_token_file: the token file doesn't exists")
+    
     def get_metrics(self, regionid):
         params = {}
         dimensions = {'region' : regionid}

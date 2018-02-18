@@ -8,7 +8,9 @@ from bson.json_util import dumps
 from paste import httpserver
 from multiprocessing.pool import Pool
 from multiprocessing import TimeoutError
+from threading import Event, Thread
 from usageData import *
+import threading
 import argparse
 import ConfigParser
 import sys
@@ -33,7 +35,34 @@ app = Bottle()
 
 HEADER_AUTH = "X-Auth-Token"
 
+class RepeatedTimer(object):
+  def __init__(self, interval, function, *args):
+    self._timer = None
+    self.interval = interval
+    self.function = function
+    self.args = args
+    self.is_running = False
+    self.next_call = time.time()
+    self.start()
 
+  def _run(self):
+    self.is_running = False
+    self.start()
+    self.function(*self.args)
+
+  def start(self):
+    if not self.is_running:
+      self.next_call += self.interval
+      self._timer = threading.Timer(self.next_call - time.time(), self._run)
+      self._timer.start()
+      self.is_running = True
+      print("token thread started")
+
+  def stop(self):
+    self._timer.cancel()
+    self.is_running = False
+    print("token thread stopped")
+    
 # Return if the token is authorized with auth_url
 #def is_idm_authorized(auth_url, token_map):
     #try:
@@ -1043,6 +1072,10 @@ def aggr_hosts_data(hosts, regionid=None):
 
 # end Mongo -----------------------------------------------------------------------------
 # Monasca -------------------------------------------------------------------------------
+
+#update the token in the parent collector
+def update_token_of_parent_collector():
+    collector.update_token()    
 
 #get the last measurement looking its timestamp
 def get_last_monasca_measurement(measurements_dict):
@@ -2806,8 +2839,12 @@ def main():
         print(traceback.format_exc())
         sys.exit(-1)
 
-    # App runs in infinite loop
-    httpserver.serve(app, host=listen_url, port=listen_port)
+    rt = RepeatedTimer(float(config_map["keystone"]["token_ttl"]), update_token_of_parent_collector) # it auto-starts, no need of rt.start()
+    try:
+        # App runs in infinite loop
+        httpserver.serve(app, host=listen_url, port=listen_port)
+    finally:
+        rt.stop() # better in a try/finally block to make sure the program ends!        
 
 
 if __name__ == '__main__':
