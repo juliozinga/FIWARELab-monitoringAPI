@@ -16,8 +16,6 @@ class CollectorInflux:
         self.__influx_host = influx_host
         self.__influx_port = influx_port
         self.__debugMode = debugMode
-        #self.__keystone_endpoint = keystone_endpoint
-        #self.__token = None
         
         self.__influx_client = InfluxDBClient(self.__influx_host, self.__influx_port, self.__username, self.__password, self.__dbname)
         
@@ -70,16 +68,7 @@ class CollectorInflux:
         try:
             response = self.__perform_influx_query("SELECT last(value_meta) FROM instance WHERE time>='"+start_timestamp+"' AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"disk.usage\" WHERE time>='"+start_timestamp+"' AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"disk.capacity\" WHERE time>='"+start_timestamp+"' AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"memory_util\" WHERE time>='"+start_timestamp+"' AND region='"+regionid+"' AND resource_id='"+vmid+"';SELECT last(value) as value,unit FROM \"cpu_util\" WHERE time>='"+start_timestamp+"' AND region='"+regionid+"' AND resource_id='"+vmid+"'")
             
-            try:
-                #response_list = list(response.items())
-                #print(list(response.get_points(measurement='disk.usage')))
-                #return None
-                return response
-            except Exception as e:
-                if strtobool(self.__debugMode):
-                    print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_vm response.items() exception")
-                    print(traceback.format_exc())  
-                return None
+            return response
 
         except InfluxDBClientError, error: 
             if strtobool(self.__debugMode):
@@ -168,7 +157,7 @@ class CollectorInflux:
                 return tot
             except Exception as e:
                 if strtobool(self.__debugMode):
-                    print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_number_of_active_vms response.items() exception")
+                    print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_number_of_active_vms response.get_points() exception")
                     print(traceback.format_exc())  
                 return 0
 
@@ -204,16 +193,7 @@ class CollectorInflux:
         try:
             response = self.__perform_influx_query("SELECT last(value) as value FROM /compute.node./ WHERE time>='"+start_timestamp+"' AND region='"+regionid+"' AND resource_id='"+hostid+"'")
             
-            try:
-                #response_list = list(response.items())
-                #print(list(response.get_points(measurement='disk.usage')))
-                #return None
-                return response
-            except Exception as e:
-                if strtobool(self.__debugMode):
-                    print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_host response.items() exception")
-                    print(traceback.format_exc())  
-                return None
+            return response
 
         except InfluxDBClientError, error: 
             if strtobool(self.__debugMode):
@@ -247,16 +227,7 @@ class CollectorInflux:
         try:
             response = self.__perform_influx_query("SELECT last(value) as value FROM /compute.node./ WHERE time>='"+start_timestamp+"' AND region='"+regionid+"' GROUP BY resource_id")
             
-            try:
-                #response_list = list(response.items())
-                #print(list(response.get_points(measurement='disk.usage')))
-                #return None
-                return response
-            except Exception as e:
-                if strtobool(self.__debugMode):
-                    print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_region_hosts_data response.items() exception")
-                    print(traceback.format_exc())  
-                return None
+            return response
 
         except InfluxDBClientError, error: 
             if strtobool(self.__debugMode):
@@ -290,16 +261,7 @@ class CollectorInflux:
         try:
             response = self.__perform_influx_query("SELECT last(value) as value FROM /compute.node./ WHERE time>='"+start_timestamp+"' GROUP BY region,resource_id")
             
-            try:
-                #response_list = list(response.items())
-                #print(list(response.get_points(measurement='disk.usage')))
-                #return None
-                return response
-            except Exception as e:
-                if strtobool(self.__debugMode):
-                    print("["+datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")+"] get_hosts_data response.items() exception")
-                    print(traceback.format_exc())  
-                return None
+            return response
 
         except InfluxDBClientError, error: 
             if strtobool(self.__debugMode):

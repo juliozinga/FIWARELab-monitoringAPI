@@ -2347,7 +2347,7 @@ def get_most_recent_timestamp(timestamp_string_list):
         except Exception as e:
             timestamp_date = histo_utils.from_monasca_ts_to_datetime_ms(timestamp)
             timestamp_list.append(timestamp_date)
-    print(timestamp_list)        
+    #print(timestamp_list)        
     return max(timestamp_list)
 
 #get host entity for a given region and hostId
