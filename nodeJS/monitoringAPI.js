@@ -3365,6 +3365,13 @@ function getServiceRegionTime(res, statusType, authToken, regionId, sinceValue, 
             }
             denom = arrayBuild[f].novaC + arrayBuild[f].neutronC + arrayBuild[f].cinderC + arrayBuild[f].glanceC + 1;
             nom = arrayBuild[f].nova + arrayBuild[f].neutron + arrayBuild[f].cinder + arrayBuild[f].glance + 1;
+            if ( 
+                arrayBuild[f].novaC == 0 &&
+                arrayBuild[f].neutronC == 0 &&
+                arrayBuild[f].cinderC == 0 &&
+                arrayBuild[f].glanceC == 0
+            )
+              denom = 0
             if (denom == 0) {
               tmpMes.OverallStatus.value = "red";
               tmpMes.OverallStatus.value_clean = 0;
