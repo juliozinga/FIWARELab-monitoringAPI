@@ -196,15 +196,13 @@ def is_region_new(regionid):
 
 
 '''
-Return region name of a region taht use new monitoring system regionid otherwise
+Return region name of a region that use new monitoring system regionid otherwise
 '''
 
 
 def get_region_name(regionid):
     region_name = app.config["main_config"]["regionNames"][regionid]
-    if not region_name:
-        return regionid
-    return region_name
+    return region_name if region_name else regionid
 
 '''
 Return region data(country,lat and lng) of a region that uses new monitoring system None otherwise
@@ -214,9 +212,7 @@ Return region data(country,lat and lng) of a region that uses new monitoring sys
 def get_region_data(regionid):
     if regionid in app.config["main_config"]["regionData"]:
         region_data = app.config["main_config"]["regionData"][regionid]
-        if not region_data:
-            return []
-        return json.loads(region_data)
+        return json.loads(region_data) if region_data else []
     else:
         return None
 
